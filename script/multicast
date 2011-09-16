@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+require 'em-websocket'
+require 'json'
+require 'andand'
+
+EventMachine.run {
+
+  @channel = EM::Channel.new
+  
+  @index = {}
+  
+  EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080, :secure => false) do |ws|
+    
+    ws.onopen {
+      puts "+"
+      sid = @channel.subscribe { |msg| ws.send msg[:data] unless msg[:signature] == ws.signature }
+      ws.send @index
+
+      ws.onmessage {|msg|
+        if msg and not msg.empty?
+          if signature = @index.keys.select{|key| @index[key][:key] == msg}.first
+            @index[ws.signature] = @index[signature]
+            @index.delete signature
+          end
+          @channel.push ({:signature => ws.signature, :data => msg}) unless @index[ws.signature].andand[:key] == msg
+          @index[ws.signature] = {:key => msg}
+        end
+      }
+    }
+    
+  end
+
+  puts "Server started"
+}

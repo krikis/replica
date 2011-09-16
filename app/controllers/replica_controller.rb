@@ -1,2 +1,0 @@
-class ReplicaController < ApplicationController
-end
