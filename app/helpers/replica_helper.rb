@@ -1,0 +1,2 @@
+module ReplicaHelper
+end
