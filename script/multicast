@@ -20,18 +20,18 @@ EventMachine.run {
         end
       end
       ws.send JSON.dump({:index => @index.values})
+    }  
 
-      ws.onmessage {|msg|
-        object = (JSON.parse msg rescue nil)
-        if object and object["key"]
-          if signature = @index.keys.select{|key| @index[key] == object["key"]}.first
-            @index[ws.signature] = @index[signature]
-            @index.delete signature
-          end
-          @channel.push object.merge({:signature => ws.signature}) unless @index[ws.signature] == object["key"]
-          @index[ws.signature] = object["key"]
+    ws.onmessage {|msg|
+      object = (JSON.parse msg rescue nil)
+      if object and object["key"]
+        if signature = @index.keys.select{|key| @index[key] == object["key"]}.first
+          @index[ws.signature] = @index[signature]
+          @index.delete signature
         end
-      }
+        @channel.push object.merge({:signature => ws.signature}) unless @index[ws.signature] == object["key"]
+        @index[ws.signature] = object["key"]
+      end
     }
     
   end
