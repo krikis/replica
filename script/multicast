@@ -13,17 +13,23 @@ EventMachine.run {
     
     ws.onopen {
       puts "+"
-      sid = @channel.subscribe { |msg| ws.send msg[:data] unless msg[:signature] == ws.signature }
-      ws.send @index
+      @channel.subscribe do |msg| 
+        puts msg.inspect
+        unless msg[:signature] == ws.signature or (msg["dest"] and msg["dest"] != @index[ws.signature])
+          ws.send JSON.dump(msg.reject{|k, v| k == :signature})
+        end
+      end
+      ws.send JSON.dump({:index => @index.values})
 
       ws.onmessage {|msg|
-        if msg and not msg.empty?
-          if signature = @index.keys.select{|key| @index[key][:key] == msg}.first
+        object = (JSON.parse msg rescue nil)
+        if object and object["key"]
+          if signature = @index.keys.select{|key| @index[key] == object["key"]}.first
             @index[ws.signature] = @index[signature]
             @index.delete signature
           end
-          @channel.push ({:signature => ws.signature, :data => msg}) unless @index[ws.signature].andand[:key] == msg
-          @index[ws.signature] = {:key => msg}
+          @channel.push object.merge({:signature => ws.signature}) unless @index[ws.signature] == object["key"]
+          @index[ws.signature] = object["key"]
         end
       }
     }

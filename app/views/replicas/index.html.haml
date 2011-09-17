@@ -9,14 +9,39 @@
     }
 
     var Socket = "MozWebSocket" in window ? MozWebSocket : WebSocket;
-    var ws = new Socket("ws://localhost:8080/");
-    ws.onmessage = function(evt) { debug("Message: " + evt.data); };
+    ws = new Socket("ws://localhost:8080/");
+    key = "#{session[:key]}"
+    index = []
+    ws.onmessage = function(evt) { 
+      data = JSON.parse(evt.data); 
+      if (!!data.index) {
+        if (index.length == 0) // add own id should no index file be receive yet
+          data.index[data.index.length] = key
+        index = data.index
+      }
+      if (data.subscribe) {
+        index[index.length] = data.key
+      }
+      debug(evt.data)
+      debug(JSON.stringify(index)); 
+    };
     ws.onclose = function() { debug("socket closed"); };
     ws.onopen = function() {
       debug("connected...");
-      ws.send("#{session[:key]}");
+      ws.send(JSON.stringify({key: key, subscribe: true}));
     };
     
   })
 
 #debug
+
+:javascript
+  $(document).ready(function(){
+    $(document).click(function(){
+      var dest = index[index.length - 1];
+      if (dest == key && index.length >= 2)
+        dest = index[index.length - 2];
+      if (!!dest)
+        ws.send(JSON.stringify({key: key, dest: dest, msg: "Hello"}))
+    })
+  })
