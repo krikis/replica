@@ -7,25 +7,59 @@ body
 
 #data
   clear: both
-  height: 200px
+  height: 24em
   width: 100%
   overflow: hidden
+  margin-bottom: .5em
   
-#button
+  .color_column
+    float: left
+    width: 5%
+    height: 24em
+    overflow: hidden
+    
+    .color_box
+      height: 4em
+  
+.button
   cursor: pointer
   float: left
   padding: 1em
-  background-color: AliceBlue
-  color: SlateGrey
+  margin-bottom: .5em
+  margin-right: .5em
   border: 1px solid Gainsboro
+  
+  &:hover
+    border-color: SlateGrey
+    
+
+.start  
+  color: black
+  background-color: Azure
   /* for webkit browsers */
   background: -webkit-gradient(linear, left top, left bottom, from(Azure), to(LightCyan))
   /* for firefox 3.6+ */
   background: -moz-linear-gradient(top,  Azure,  AliceBlue)
   
+.stop, .clear      
+  color: white
+  background-color: Crimson
+  /* for webkit browsers */
+  background: -webkit-gradient(linear, left top, left bottom, from(Crimson), to(DarkRed))
+  /* for firefox 3.6+ */
+  background: -moz-linear-gradient(top,  Crimson,  DarkRed)
+  
+.button.disabled
+  color: Silver
+  background-color: WhiteSmoke
+  /* for webkit browsers */
+  background: -webkit-gradient(linear, left top, left bottom, from(white), to(WhiteSmoke))
+  /* for firefox 3.6+ */
+  background: -moz-linear-gradient(top,  white,  WhiteSmoke)
+  
   &:hover
-    color: black
-    border-color: SlateGrey
+    border-color: Gainsboro
+  
 
 #debug
   clear: both

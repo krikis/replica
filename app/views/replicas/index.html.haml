@@ -32,17 +32,19 @@
         id = localStorage._id
         index = JSON.parse(localStorage._index)
         data = JSON.parse(evt.data)
-        if data.index? # set the initial index
+        if data.index?                                 # set the initial index
           data.index[data.index.length] = id unless id in data.index
           index = data.index
-        else if data.subscribe? and data.id != id # handle subscription
+        else if data.subscribe? and data.id != id      # handle subscription
           index[index.length] = data.id
-        else if data.unsubscribe and data.id != id # handle unsubscription
+        else if data.unsubscribe and data.id != id     # handle unsubscription
           index.delete data.id
+        else if data.clear
+          document.clear_data()
         else
           document.store_data(data)
           return
-        # finally 
+        # finally
         # save index updates to localstorage
         localStorage._index = JSON.stringify(index)
         # debug evt.data
@@ -65,36 +67,68 @@
       # check the checksum
       if data.crc? and crc32("\#{data.key}|\#{data.value}") == data.crc
         {key, value} = data
-        debug "\#{key}: \#{value}"
+        old_value = localStorage[key]
+        old_value ?= "#ffffff"
+        localStorage[key] = value
+        $("<div id='\#{key}' class='color_column'>").appendTo("#data") if $("#data > #\#{key}").length == 0
+        color_box = $("<div class='color_box'>")
+        color_box.appendTo("#data > #\#{key}")
+        color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{old_value}), to(\#{value}))")
+        $("#data > #\#{key}").scrollTo(color_box, 50)
+        debug "\#{key}: \#{old_value} -> \#{value}"
       else if data.crc?
         debug "Checksum Error"
-
-    @show_data = ->
-      keys = (name for name of localStorage when name[0] != '_')
+        
+    @clear_data = -> 
+      for key of localStorage when key[0] != '_'
+        localStorage.removeItem key
+      $("#data").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
-      initSocket()
+      initSocket()                              # initialize a web socket
 
-#button Start
+#startbutton.button.start Start
+#clearbutton.button.clear Clear
 #data
 #debug
 
 :coffeescript
   $(document).ready ->
+    web_socket = window.web_socket
+    # fetch data from localstorage
+    id = localStorage._id
+    index = JSON.parse localStorage._index
+    @send_data = ->
+      # generate data for localstorage
+      number = Math.floor(Math.random() * 20).toString()
+      number = "0" + number until number.length == 2
+      key = "key_" + Math.floor(Math.random() * 20).toString()
+      value = window.random_color()
+      web_socket.send JSON.stringify(
+        id: id
+        key: key
+        value: value
+        crc: crc32("\#{key}|\#{value}") # crc checksum
+      )
+      
     if Modernizr.localstorage and Modernizr.websockets
-      $("#button").click ->
-        web_socket = window.web_socket
-        # fetch data from localstorage
-        id = localStorage._id
-        index = JSON.parse localStorage._index
-        # generate data for localstorage
-        number = Math.floor(Math.random() * 20).toString()
-        number = "0" + number until number.length == 2
-        key = "key_" + Math.floor(Math.random() * 20).toString()
-        value = window.random_color()
-        web_socket.send JSON.stringify(
-          id: id
-          key: key
-          value: value
-          crc: crc32("\#{key}|\#{value}") # crc checksum
-        )
+      $("#startbutton").click ->
+        unless window.interval_id?
+          window.interval_id = window.setInterval document.send_data, 1000
+          $(this).html("Stop")
+                 .removeClass("start")
+                 .addClass("stop")
+          $(".clear").addClass("disabled")
+        else
+          window.clearInterval window.interval_id
+          window.interval_id = null
+          $(this).html("Start")
+                 .removeClass("stop")
+                 .addClass("start")
+          $(".clear").removeClass("disabled")
+      $("#clearbutton").click ->
+        unless $(this).hasClass("disabled")
+          web_socket.send JSON.stringify(
+            id: id
+            clear: true
+          )
