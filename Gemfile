@@ -8,7 +8,10 @@ gem 'rails', '3.1.0'
 gem 'sqlite3'
 
 gem 'json'
+# faster json
+# gem install yajl-ruby
 gem 'haml'
+gem 'coffee-filter'
 
 gem "eventmachine"
 gem "em-websocket"

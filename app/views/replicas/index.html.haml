@@ -1,47 +1,53 @@
 
-:javascript
-  $(document).ready(function(){
-    function debug(string) {
-      var element = document.getElementById("debug");
-      var p = document.createElement("p");
-      p.appendChild(document.createTextNode(string));
-      element.appendChild(p);
-    }
-
-    var Socket = "MozWebSocket" in window ? MozWebSocket : WebSocket;
-    ws = new Socket("ws://localhost:8080/");
+:coffeescript
+  $(document).ready ->
+    debug = (string) ->
+      element = document.getElementById("debug")
+      p = document.createElement("p")
+      p.appendChild document.createTextNode(string)
+      element.appendChild p
+    Socket = (if "MozWebSocket" of window then MozWebSocket else WebSocket)
+    ws = new Socket("ws://localhost:8080/")
+    window.ws = ws
     key = "#{session[:key]}"
-    index = []
-    ws.onmessage = function(evt) { 
-      data = JSON.parse(evt.data); 
-      if (!!data.index) {
-        if (index.length == 0) // add own id should no index file be receive yet
-          data.index[data.index.length] = key
-        index = data.index
-      }
-      if (data.subscribe) {
-        index[index.length] = data.key
-      }
-      debug(evt.data)
-      debug(JSON.stringify(index)); 
-    };
-    ws.onclose = function() { debug("socket closed"); };
-    ws.onopen = function() {
-      debug("connected...");
-      ws.send(JSON.stringify({key: key, subscribe: true}));
-    };
-    
-  })
+    window.key = key
+    window.index = []
+    ws.onmessage = (evt) ->
+      data = JSON.parse(evt.data)
+      if data.index?
+        data.index[data.index.length] = key unless key in data.index
+        window.index = data.index
+      window.index[window.index.length] = data.key  if data.subscribe?
+      window.index if data.unsubscribe
+      debug evt.data
+      debug JSON.stringify(window.index)
+  
+    ws.onclose = ->
+      ws.send JSON.stringify(
+        key: key
+        unsubscribe: true
+      )
+      debug "socket closed"
+  
+    ws.onopen = ->
+      debug "connected..."
+      ws.send JSON.stringify(
+        key: key
+        subscribe: true
+      )
 
 #debug
 
-:javascript
-  $(document).ready(function(){
-    $(document).click(function(){
-      var dest = index[index.length - 1];
-      if (dest == key && index.length >= 2)
-        dest = index[index.length - 2];
-      if (!!dest)
-        ws.send(JSON.stringify({key: key, dest: dest, msg: "Hello"}))
-    })
-  })
+:coffeescript
+  $(document).ready ->
+    $(document).click ->
+      ws = window.ws
+      index = window.index
+      dest = index[index.length - 1]
+      dest = index[index.length - 2]  if dest == key and index.length >= 2
+      unless !dest
+        ws.send JSON.stringify(
+          key: key
+          dest: dest
+          msg: "Hello"
+        )
