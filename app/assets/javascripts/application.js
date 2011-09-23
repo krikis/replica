@@ -6,5 +6,4 @@
 //
 //= require jquery
 //= require jquery_ujs
-//= require modernizr-2.0.6
 //= require_tree .
