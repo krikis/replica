@@ -13,7 +13,7 @@ EventMachine.run {
 
     ws.onopen {
       sid = @channel.subscribe do |msg|
-        unless msg[:signature] == ws.signature or (msg["dest"] and msg["dest"] != @index[ws.signature])
+        unless msg["dest"] and msg["dest"] != @index[ws.signature]
           puts msg.inspect
           ws.send JSON.dump(msg.reject{|k, v| k == :signature})
         end

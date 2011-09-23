@@ -10,3 +10,8 @@ unless Array::delete?
 unless Array::empty?
   Array::empty = -> 
     @length == 0
+
+@random_color = ->
+  hex = Math.abs(Math.random() * 0xFFFFFF << 0).toString 16
+  hex = '0' + hex until hex.length == 6
+  '#' + hex

@@ -7,6 +7,7 @@
 //= require jquery
 //= require jquery_ujs
 //= utilities
-//= crc32
-//= modernizr-2.0.6
+//= require crc32
+//= require modernizr-2.0.6
+//= require jquery.scrollTo
 //= require_tree .
