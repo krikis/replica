@@ -45,8 +45,8 @@
         # finally 
         # save index updates to localstorage
         localStorage._index = JSON.stringify(index)
-        debug evt.data
-        debug localStorage._index
+        # debug evt.data
+        # debug localStorage._index
 
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
@@ -63,8 +63,11 @@
 
     @store_data = (data) ->
       # check the checksum
-      if data.crc? and crc32(data.msg) == data.crc
-        debug(JSON.stringify(data))
+      if data.crc? and crc32("\#{data.key}|\#{data.value}") == data.crc
+        {key, value} = data
+        debug "\#{key}: \#{value}"
+      else if data.crc?
+        debug "Checksum Error"
 
     @show_data = ->
       keys = (name for name of localStorage when name[0] != '_')
@@ -84,14 +87,14 @@
         # fetch data from localstorage
         id = localStorage._id
         index = JSON.parse localStorage._index
-        slot = "slot" + Math.floor(Math.random() * 20).toString()
-        
-        # dest = index.pop() until (dest? and dest != id) or index.empty()
-        # if dest?
-        #   msg = "Hello"
-        #   web_socket.send JSON.stringify(
-        #     id: id
-        #     dest: dest
-        #     msg: msg
-        #     crc: crc32(msg) # crc checksum
-        #   )
+        # generate data for localstorage
+        number = Math.floor(Math.random() * 20).toString()
+        number = "0" + number until number.length == 2
+        key = "key_" + Math.floor(Math.random() * 20).toString()
+        value = window.random_color()
+        web_socket.send JSON.stringify(
+          id: id
+          key: key
+          value: value
+          crc: crc32("\#{key}|\#{value}") # crc checksum
+        )
