@@ -24,7 +24,7 @@ EventMachine.run {
       ws.onclose {
         @channel.unsubscribe sid
         puts "-#{sid}"
-        @channel.push({"key" => @index.delete(ws.signature),
+        @channel.push({"id" => @index.delete(ws.signature),
                        "unsubscribe" => true,
                        :signature => ws.signature})
       }
@@ -32,13 +32,13 @@ EventMachine.run {
 
     ws.onmessage {|msg|
       object = (JSON.parse msg rescue nil)
-      if object and object["key"]
-        if signature = @index.keys.select{|key| @index[key] == object["key"]}.first
+      if object and object["id"]
+        if signature = @index.keys.select{|signature| @index[signature] == object["id"]}.first
           @index[ws.signature] = @index[signature]
           @index.delete signature
         end
-        @channel.push object.merge({:signature => ws.signature}) unless @index[ws.signature] == object["key"]
-        @index[ws.signature] = object["key"]
+        @channel.push object.merge({:signature => ws.signature}) unless @index[ws.signature] == object["id"]
+        @index[ws.signature] = object["id"]
       end
     }
 
