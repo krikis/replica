@@ -6,21 +6,29 @@ require 'andand'
 EventMachine.run {
 
   @channel = EM::Channel.new
-  
+
   @index = {}
-  
+
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080, :secure => false) do |ws|
-    
+
     ws.onopen {
-      puts "+"
-      @channel.subscribe do |msg| 
-        puts msg.inspect
+      sid = @channel.subscribe do |msg|
         unless msg[:signature] == ws.signature or (msg["dest"] and msg["dest"] != @index[ws.signature])
+          puts msg.inspect
           ws.send JSON.dump(msg.reject{|k, v| k == :signature})
         end
       end
+      puts "+#{sid}"
       ws.send JSON.dump({:index => @index.values})
-    }  
+
+      ws.onclose {
+        @channel.unsubscribe sid
+        puts "-#{sid}"
+        @channel.push({"key" => @index.delete(ws.signature),
+                       "unsubscribe" => true,
+                       :signature => ws.signature})
+      }
+    }
 
     ws.onmessage {|msg|
       object = (JSON.parse msg rescue nil)
@@ -33,7 +41,7 @@ EventMachine.run {
         @index[ws.signature] = object["key"]
       end
     }
-    
+
   end
 
   puts "Server started"

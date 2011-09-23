@@ -6,4 +6,7 @@
 //
 //= require jquery
 //= require jquery_ujs
+//= utilities
+//= crc32
+//= modernizr-2.0.6
 //= require_tree .
