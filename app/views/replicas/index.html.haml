@@ -42,6 +42,7 @@
         else
           document.store_data(data)
           return
+        # finally 
         # save index updates to localstorage
         localStorage._index = JSON.stringify(index)
         debug evt.data
@@ -71,23 +72,26 @@
     if Modernizr.localstorage and Modernizr.websockets
       initSocket()
 
+#button Start
 #data
 #debug
 
 :coffeescript
   $(document).ready ->
     if Modernizr.localstorage and Modernizr.websockets
-      $(document).click ->
+      $("#button").click ->
         web_socket = window.web_socket
         # fetch data from localstorage
         key = localStorage._key
         index = JSON.parse localStorage._index
-        dest = index.pop() until (dest? and dest != key) or index.empty()
-        if dest?
-          msg = "Hello"
-          web_socket.send JSON.stringify(
-            key: key
-            dest: dest
-            msg: msg
-            crc: crc32(msg) # crc checksum
-          )
+        slot = "slot" + Math.floor(Math.random() * 20).toString()
+        
+        # dest = index.pop() until (dest? and dest != key) or index.empty()
+        # if dest?
+        #   msg = "Hello"
+        #   web_socket.send JSON.stringify(
+        #     key: key
+        #     dest: dest
+        #     msg: msg
+        #     crc: crc32(msg) # crc checksum
+        #   )

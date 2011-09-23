@@ -2,12 +2,33 @@
 // They will automatically be included in application.css.
 // You can use Sass (SCSS) here: http://sass-lang.com/
 
+body
+  font-family: Verdana, sans-serif
+
 #data
+  clear: both
   height: 400px
   width: 100%
   overflow: hidden
+  
+#button
+  cursor: pointer
+  float: left
+  padding: 1em
+  background-color: AliceBlue
+  color: SlateGrey
+  border: 1px solid Gainsboro
+  /* for webkit browsers */
+  background: -webkit-gradient(linear, left top, left bottom, from(Azure), to(LightCyan))
+  /* for firefox 3.6+ */
+  background: -moz-linear-gradient(top,  Azure,  AliceBlue)
+  
+  &:hover
+    color: black
+    border-color: SlateGrey
 
 #debug
+  clear: both
   height: 200px
   width: 100%
   overflow: hidden
