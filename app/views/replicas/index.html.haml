@@ -12,7 +12,7 @@
     window.reconnect_on = 2
     initSocket = ->
       Socket = (if "MozWebSocket" of window then MozWebSocket else WebSocket)
-      localStorage._key = "#{session[:key]}"
+      localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
@@ -23,22 +23,22 @@
         window.reconnect_on = 2
         debug "connected..."
         web_socket.send JSON.stringify(
-          key: localStorage._key
+          id: localStorage._id
           subscribe: true
         )
 
       web_socket.onmessage = (evt) ->
         # fetch data from localstorage
-        key = localStorage._key
+        id = localStorage._id
         index = JSON.parse(localStorage._index)
         data = JSON.parse(evt.data)
         if data.index? # set the initial index
-          data.index[data.index.length] = key unless key in data.index
+          data.index[data.index.length] = id unless id in data.index
           index = data.index
-        else if data.subscribe? and data.key != key # handle subscription
-          index[index.length] = data.key
-        else if data.unsubscribe and data.key != key # handle unsubscription
-          index.delete data.key
+        else if data.subscribe? and data.id != id # handle subscription
+          index[index.length] = data.id
+        else if data.unsubscribe and data.id != id # handle unsubscription
+          index.delete data.id
         else
           document.store_data(data)
           return
@@ -82,15 +82,15 @@
       $("#button").click ->
         web_socket = window.web_socket
         # fetch data from localstorage
-        key = localStorage._key
+        id = localStorage._id
         index = JSON.parse localStorage._index
         slot = "slot" + Math.floor(Math.random() * 20).toString()
         
-        # dest = index.pop() until (dest? and dest != key) or index.empty()
+        # dest = index.pop() until (dest? and dest != id) or index.empty()
         # if dest?
         #   msg = "Hello"
         #   web_socket.send JSON.stringify(
-        #     key: key
+        #     id: id
         #     dest: dest
         #     msg: msg
         #     crc: crc32(msg) # crc checksum
