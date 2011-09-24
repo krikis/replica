@@ -18,6 +18,7 @@
       localStorage._index = JSON.stringify []
       localStorage._vector ?= JSON.stringify {}
       localStorage._send_queue ?= JSON.stringify {}
+      localStorage._delivery_queue ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
 
@@ -71,6 +72,10 @@
           window.prev_reconnect_on = tmp
 
     @store_data = (data) ->
+      # set local variables
+      {key, value, old_value} = data
+      local_old_value = localStorage[key]
+      local_old_value ?= "#ffffff"
       unless localStorage._id == data.id      
         vector = JSON.parse localStorage._vector
         vector[data.id] ?= 0
@@ -84,8 +89,9 @@
           debug "Missing messages from others!", "Crimson"
           return
         # There are messages missing from the sender
-        if (vector[data.id] + 1 < data.vector[data.id])
+        if vector[data.id] + 1 < data.vector[data.id]
           debug "Missing messages from sender!", "Crimson"
+          document.visualize_data_flow("#queue", key, value, old_value, false, true)
           return
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -96,27 +102,33 @@
         localStorage._vector = JSON.stringify vector
         
       # Actually store the data
-      {key, value, old_value} = data
-      local_old_value = localStorage[key]
-      local_old_value ?= "#ffffff"
       localStorage[key] = value
-      $("<div id='\#{key}' class='color_column'>").appendTo("#data") if $("#data > #\#{key}").length == 0
-      color_box = $("<div class='color_box'>")
-      color_box.prependTo("#data > #\#{key}")
-      color = "Gainsboro"
-      if local_old_value != old_value
-        color = "Crimson"
-        color_box.css("border", "1px solid red") 
-      color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{value}), to(\#{old_value}))")
-      # $("#data > #\#{key}").scrollTo(color_box, 50)
+      # Visualize the data stored
+      document.visualize_data_flow("#data", key, value, old_value, old_value != local_old_value)
+      # color = "Gainsboro"
+      # if local_old_value != old_value
+      #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
+      
+    @visualize_data_flow = (id, key, top_color, bottom_color, warning = false, scroll = false) ->  
+      $("<div id='\#{key}' class='color_column'>").appendTo("\#{id}") if $("\#{id} > #\#{key}").length == 0
+      color_box = $("<div class='color_box'>")
+      unless scroll
+        color_box.prependTo("\#{id} > #\#{key}")
+      else
+        color_box.insertAfter("\#{id} > #\#{key} > .color_stub")      
+      color_box.css("border", "1px solid red") if warning
+      color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
+      $("\#{id} > #\#{key}").scrollTo(".color_box:last-child") if scroll
+       
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
       localStorage.setItem "_send_queue", JSON.stringify({})
       localStorage.setItem "_vector", JSON.stringify({})
-      $(".color_column").html("")
+      $("#queue > .color_column").html("<div class='color_stub'>")
+      $("#data > .color_column").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
       document.initSocket()                              # initialize a web socket
@@ -126,6 +138,48 @@
 #offbutton.button.offline Offline
 #logbutton.button.log Hide Log
 
+%div.container
+  #queue
+    #key_01.color_column
+      %div.color_stub
+    #key_02.color_column
+      %div.color_stub
+    #key_03.color_column
+      %div.color_stub
+    #key_04.color_column
+      %div.color_stub
+    #key_05.color_column
+      %div.color_stub
+    #key_06.color_column
+      %div.color_stub
+    #key_07.color_column
+      %div.color_stub
+    #key_08.color_column
+      %div.color_stub
+    #key_09.color_column
+      %div.color_stub
+    #key_10.color_column
+      %div.color_stub
+    #key_11.color_column
+      %div.color_stub
+    #key_12.color_column
+      %div.color_stub
+    #key_13.color_column
+      %div.color_stub
+    #key_14.color_column
+      %div.color_stub
+    #key_15.color_column
+      %div.color_stub
+    #key_16.color_column
+      %div.color_stub
+    #key_17.color_column
+      %div.color_stub
+    #key_18.color_column
+      %div.color_stub
+    #key_19.color_column
+      %div.color_stub
+    #key_20.color_column
+      %div.color_stub
 %div.container
   #data
     #key_01.color_column
