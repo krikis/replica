@@ -96,13 +96,13 @@
       localStorage[key] = value
       $("<div id='\#{key}' class='color_column'>").appendTo("#data") if $("#data > #\#{key}").length == 0
       color_box = $("<div class='color_box'>")
-      color_box.appendTo("#data > #\#{key}")
+      color_box.prependTo("#data > #\#{key}")
       color = "Gainsboro"
       if local_old_value != old_value
         color = "Crimson"
         color_box.css("border", "1px solid red") 
-      color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{old_value}), to(\#{value}))")
-      $("#data > #\#{key}").scrollTo(color_box, 50)
+      color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{value}), to(\#{old_value}))")
+      # $("#data > #\#{key}").scrollTo(color_box, 50)
       debug "\#{key}: \#{old_value} -> \#{value}", color
 
     @clear_data = ->
@@ -178,7 +178,7 @@
       $("#startbutton").click ->
         unless window.interval_id?
           window.web_socket.send JSON.stringify(id: id, disable_clear: true)
-          window.interval_id = window.setInterval document.send_data, 1000
+          window.interval_id = window.setInterval document.send_data, 500
           $(this).html("Stop")
                  .removeClass("start")
                  .addClass("stop")
