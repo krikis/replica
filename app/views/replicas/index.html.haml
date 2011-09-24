@@ -16,8 +16,8 @@
       # initialize local storage system variables
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
-      localStorage._vector = JSON.stringify {}
-      localStorage._send_queue = JSON.stringify {}
+      localStorage._vector ?= JSON.stringify {}
+      localStorage._send_queue ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
 
@@ -59,7 +59,7 @@
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
         debug "socket closed"
-        debug localStorage._index, "Gainsboro"
+        # debug localStorage._index, "Gainsboro"
         unless window.offline?
           debug "reconnecting in \#{window.reconnect_on} seconds...", "Gainsboro"
           setTimeout (->
@@ -71,8 +71,10 @@
           window.prev_reconnect_on = tmp
 
     @store_data = (data) ->
-      unless localStorage._id == data.id
+      unless localStorage._id == data.id      
         vector = JSON.parse localStorage._vector
+        vector[data.id] ?= 0
+        debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
@@ -82,13 +84,17 @@
           debug "Missing messages from others!", "Crimson"
           return
         # There are messages missing from the sender
-        if (vector[data.id] < data.vector[data.id] + 1)
+        if (vector[data.id] + 1 < data.vector[data.id])
           debug "Missing messages from sender!", "Crimson"
           return
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
           debug "Checksum Error!", "Crimson"
           return
+        # update the vector
+        vector[data.id] = data.vector[data.id]
+        localStorage._vector = JSON.stringify vector
+        
       # Actually store the data
       {key, value, old_value} = data
       local_old_value = localStorage[key]
@@ -103,11 +109,13 @@
         color_box.css("border", "1px solid red") 
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{value}), to(\#{old_value}))")
       # $("#data > #\#{key}").scrollTo(color_box, 50)
-      debug "\#{key}: \#{old_value} -> \#{value}", color
+      # debug "\#{key}: \#{old_value} -> \#{value}", color
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
+      localStorage.setItem "_send_queue", JSON.stringify({})
+      localStorage.setItem "_vector", JSON.stringify({})
       $(".color_column").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
@@ -141,6 +149,7 @@
     #key_19.color_column
     #key_20.color_column
 #debug
+#id= "#{session[:key]}"
 
 :coffeescript
   $(document).ready ->
@@ -150,6 +159,7 @@
     @send_data = ->
       # increment vector timestamp for this process
       vector = JSON.parse(localStorage._vector)
+      vector[localStorage._id] ?= 0
       count = ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
       # generate data for localstorage
@@ -178,7 +188,7 @@
       $("#startbutton").click ->
         unless window.interval_id?
           window.web_socket.send JSON.stringify(id: id, disable_clear: true)
-          window.interval_id = window.setInterval document.send_data, 500
+          window.interval_id = window.setInterval document.send_data, 1000
           $(this).html("Stop")
                  .removeClass("start")
                  .addClass("stop")
