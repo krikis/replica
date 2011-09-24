@@ -91,27 +91,30 @@
 
 #startbutton.button.start Start
 #clearbutton.button.clear Clear
-#data
-  #key_00.color_column
-  #key_01.color_column
-  #key_02.color_column
-  #key_03.color_column
-  #key_04.color_column
-  #key_05.color_column
-  #key_06.color_column
-  #key_07.color_column
-  #key_08.color_column
-  #key_09.color_column
-  #key_10.color_column
-  #key_11.color_column
-  #key_12.color_column
-  #key_13.color_column
-  #key_14.color_column
-  #key_15.color_column
-  #key_16.color_column
-  #key_17.color_column
-  #key_18.color_column
-  #key_19.color_column
+#logbutton.button.log Show Log
+
+%div.container
+  #data
+    #key_00.color_column
+    #key_01.color_column
+    #key_02.color_column
+    #key_03.color_column
+    #key_04.color_column
+    #key_05.color_column
+    #key_06.color_column
+    #key_07.color_column
+    #key_08.color_column
+    #key_09.color_column
+    #key_10.color_column
+    #key_11.color_column
+    #key_12.color_column
+    #key_13.color_column
+    #key_14.color_column
+    #key_15.color_column
+    #key_16.color_column
+    #key_17.color_column
+    #key_18.color_column
+    #key_19.color_column
 #debug
 
 :coffeescript
@@ -155,3 +158,11 @@
             id: id
             clear: true
           )
+      $("#logbutton").click ->
+        if $(this).html() == "Show Log"
+          $(this).html("Hide Log")
+          $("#debug").show()
+        else
+          $(this).html("Show Log")
+          $("#debug").hide()
+        
