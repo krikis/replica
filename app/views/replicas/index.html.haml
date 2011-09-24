@@ -39,6 +39,8 @@
           index[index.length] = data.id
         else if data.unsubscribe and data.id != id     # handle unsubscription
           index.delete data.id
+        else if data.disable_clear
+          $(".clear").addClass("disabled")
         else if data.clear
           document.clear_data()
         else
@@ -82,7 +84,7 @@
     @clear_data = -> 
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
-      $("#data").html("")
+      $(".color_column").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
       initSocket()                              # initialize a web socket
@@ -90,6 +92,26 @@
 #startbutton.button.start Start
 #clearbutton.button.clear Clear
 #data
+  #key_00.color_column
+  #key_01.color_column
+  #key_02.color_column
+  #key_03.color_column
+  #key_04.color_column
+  #key_05.color_column
+  #key_06.color_column
+  #key_07.color_column
+  #key_08.color_column
+  #key_09.color_column
+  #key_10.color_column
+  #key_11.color_column
+  #key_12.color_column
+  #key_13.color_column
+  #key_14.color_column
+  #key_15.color_column
+  #key_16.color_column
+  #key_17.color_column
+  #key_18.color_column
+  #key_19.color_column
 #debug
 
 :coffeescript
@@ -102,7 +124,7 @@
       # generate data for localstorage
       number = Math.floor(Math.random() * 20).toString()
       number = "0" + number until number.length == 2
-      key = "key_" + Math.floor(Math.random() * 20).toString()
+      key = "key_" + number
       value = window.random_color()
       web_socket.send JSON.stringify(
         id: id
@@ -114,6 +136,7 @@
     if Modernizr.localstorage and Modernizr.websockets
       $("#startbutton").click ->
         unless window.interval_id?
+          web_socket.send JSON.stringify(id: id, disable_clear: true)
           window.interval_id = window.setInterval document.send_data, 1000
           $(this).html("Stop")
                  .removeClass("start")
