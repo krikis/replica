@@ -168,7 +168,7 @@
                  .removeClass("offline")
                  .addClass("online")
           window.offline = true
-          web_socket.close()
+          window.web_socket.close()
         else
           $(this).html("Offline")
                  .removeClass("online")
