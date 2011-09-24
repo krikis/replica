@@ -1,9 +1,10 @@
 
 :coffeescript
   $(document).ready ->
-    debug = (string) ->
+    debug = (string, color="black") ->
       paragraph = $("<p>\#{string}<\p>")
       paragraph.appendTo("#debug")
+      paragraph.css("color", color)
       $("#debug").scrollTo(paragraph, 50)
     window.debug = debug
 
@@ -22,7 +23,7 @@
         window.prev_reconnect_on = 1
         window.reconnect_on = 2
         debug "connected..."
-        web_socket.send JSON.stringify(
+        window.web_socket.send JSON.stringify(
           id: localStorage._id
           subscribe: true
         )
@@ -43,21 +44,21 @@
           $(".clear").addClass("disabled")
         else if data.clear
           document.clear_data()
-        else
+        else if data.id != id
           document.store_data(data)
           return
         # finally
         # save index updates to localstorage
         localStorage._index = JSON.stringify(index)
-        debug evt.data
-        debug localStorage._index
+        debug evt.data, "Gainsboro"
+        debug localStorage._index, "Gainsboro"
 
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
         debug "socket closed"
-        debug localStorage._index
+        debug localStorage._index, "Gainsboro"
         unless window.offline?
-          debug "reconnecting in \#{window.reconnect_on} seconds..."
+          debug "reconnecting in \#{window.reconnect_on} seconds...", "Gainsboro"
           setTimeout (->
             document.initSocket()
           ), window.reconnect_on * 1000
@@ -67,20 +68,35 @@
           window.prev_reconnect_on = tmp
 
     @store_data = (data) ->
-      # check the checksum
-      if data.crc? and crc32("\#{data.key}|\#{data.value}") == data.crc
-        {key, value} = data
-        old_value = localStorage[key]
-        old_value ?= "#ffffff"
-        localStorage[key] = value
-        $("<div id='\#{key}' class='color_column'>").appendTo("#data") if $("#data > #\#{key}").length == 0
-        color_box = $("<div class='color_box'>")
-        color_box.appendTo("#data > #\#{key}")
-        color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{old_value}), to(\#{value}))")
-        $("#data > #\#{key}").scrollTo(color_box, 50)
-        debug "\#{key}: \#{old_value} -> \#{value}"
-      else if data.crc?
-        debug "Checksum Error"
+      vector = localStorage._vector
+      # The message was already delivered
+      if vector[data.id] >= data.vector[data.id]
+        debug "Old message", "Crimson"
+        return
+      # There are messages missing from processes other than the sender
+      if (errors = id for id of vector when vector[id] < data.vector.id).length > 1
+        debug "Missing messages from others!", "Crimson"
+        return
+      # There are messages missing from the sender
+      if (vector[data.id] < data.vector[data.id] + 1)
+        debug "Missing messages from sender!", "Crimson"
+        return
+      # The received data is corrupt
+      if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
+        debug "Checksum Error!", "Crimson"
+        return
+      # Actually store the data
+      {key, value, old_value} = data
+      local_old_value = localStorage[key]
+      local_old_value ?= "#ffffff"
+      localStorage[key] = value
+      $("<div id='\#{key}' class='color_column'>").appendTo("#data") if $("#data > #\#{key}").length == 0
+      color_box = $("<div class='color_box'>")
+      color_box.appendTo("#data > #\#{key}")
+      color_box.css("border", "1px solid red") if local_old_value != old_value
+      color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{old_value}), to(\#{value}))")
+      $("#data > #\#{key}").scrollTo(color_box, 50)
+      debug "\#{key}: \#{old_value} -> \#{value}", "Gainsboro"
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
@@ -121,27 +137,36 @@
 
 :coffeescript
   $(document).ready ->
-    web_socket = window.web_socket
     # fetch data from localstorage
     id = localStorage._id
     index = JSON.parse localStorage._index
     @send_data = ->
+      # increment vector timestamp for this process
+      count = ++localStorage._vector[localStorage._id]
       # generate data for localstorage
       number = Math.floor(Math.random() * 20).toString()
       number = "0" + number until number.length == 2
       key = "key_" + number
       value = window.random_color()
-      web_socket.send JSON.stringify(
+      old_value = localStorage[key]
+      old_value ?= "#ffffff"
+      data =
         id: id
         key: key
         value: value
-        crc: crc32("\#{key}|\#{value}") # crc checksum
-      )
+        old_value: old_value
+        crc: crc32("\#{key}|\#{value}")
+        vector: localStorage._vector
+      # push the message in the sent queue for later reference
+      localStorage._send_queue[count.toString()] = data
+      # send and store the data
+      window.web_socket.send JSON.stringify(data)
+      document.store_data(data)
 
     if Modernizr.localstorage and Modernizr.websockets
       $("#startbutton").click ->
         unless window.interval_id?
-          web_socket.send JSON.stringify(id: id, disable_clear: true)
+          window.web_socket.send JSON.stringify(id: id, disable_clear: true)
           window.interval_id = window.setInterval document.send_data, 1000
           $(this).html("Stop")
                  .removeClass("start")
@@ -157,7 +182,7 @@
 
       $("#clearbutton").click ->
         unless $(this).hasClass("disabled")
-          web_socket.send JSON.stringify(
+          window.web_socket.send JSON.stringify(
             id: id
             clear: true
           )
