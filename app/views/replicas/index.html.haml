@@ -10,7 +10,7 @@
     # set initial reconnection timeout to 2 seconds
     window.prev_reconnect_on = 1
     window.reconnect_on = 2
-    initSocket = ->
+    @initSocket = ->
       Socket = (if "MozWebSocket" of window then MozWebSocket else WebSocket)
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
@@ -49,21 +49,22 @@
         # finally
         # save index updates to localstorage
         localStorage._index = JSON.stringify(index)
-        # debug evt.data
-        # debug localStorage._index
+        debug evt.data
+        debug localStorage._index
 
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
         debug "socket closed"
         debug localStorage._index
-        debug "reconnecting in \#{window.reconnect_on} seconds..."
-        setTimeout (->
-          initSocket()
-        ), window.reconnect_on * 1000
-        # increase the timeout fibonacciwise in order to decrease the network load
-        tmp = window.reconnect_on
-        window.reconnect_on = window.reconnect_on + window.prev_reconnect_on
-        window.prev_reconnect_on = tmp
+        unless window.offline?
+          debug "reconnecting in \#{window.reconnect_on} seconds..."
+          setTimeout (->
+            document.initSocket()
+          ), window.reconnect_on * 1000
+          # increase the timeout fibonacciwise in order to decrease the network load
+          tmp = window.reconnect_on
+          window.reconnect_on = window.reconnect_on + window.prev_reconnect_on
+          window.prev_reconnect_on = tmp
 
     @store_data = (data) ->
       # check the checksum
@@ -80,17 +81,18 @@
         debug "\#{key}: \#{old_value} -> \#{value}"
       else if data.crc?
         debug "Checksum Error"
-        
-    @clear_data = -> 
+
+    @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
       $(".color_column").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
-      initSocket()                              # initialize a web socket
+      document.initSocket()                              # initialize a web socket
 
 #startbutton.button.start Start
 #clearbutton.button.clear Clear
+#offbutton.button.offline Offline
 #logbutton.button.log Show Log
 
 %div.container
@@ -135,7 +137,7 @@
         value: value
         crc: crc32("\#{key}|\#{value}") # crc checksum
       )
-      
+
     if Modernizr.localstorage and Modernizr.websockets
       $("#startbutton").click ->
         unless window.interval_id?
@@ -152,12 +154,28 @@
                  .removeClass("stop")
                  .addClass("start")
           $(".clear").removeClass("disabled")
+
       $("#clearbutton").click ->
         unless $(this).hasClass("disabled")
           web_socket.send JSON.stringify(
             id: id
             clear: true
           )
+
+      $("#offbutton").click ->
+        if $(this).html() == "Offline"
+          $(this).html("Online")
+                 .removeClass("offline")
+                 .addClass("online")
+          window.offline = true
+          web_socket.close()
+        else
+          $(this).html("Offline")
+                 .removeClass("online")
+                 .addClass("offline")
+          window.offline = null
+          document.initSocket()
+
       $("#logbutton").click ->
         if $(this).html() == "Show Log"
           $(this).html("Hide Log")
@@ -165,4 +183,3 @@
         else
           $(this).html("Show Log")
           $("#debug").hide()
-        

@@ -5,26 +5,28 @@
 body
   font-family: Verdana, sans-serif
 
-.container  
+.container
   clear: both
   border: 1px solid Gainsboro
   margin-bottom: .5em
   padding-left: 1px
+  padding-top: 1px
+  padding-bottom: 1px
 
 #data
   clear: both
   height: 24em
   overflow: hidden
-  
+
   .color_column
     float: left
     width: 5%
     height: 24em
     overflow: hidden
-    
+
     .color_box
       height: 4em
-  
+
 .button
   cursor: pointer
   float: left
@@ -32,27 +34,27 @@ body
   margin-bottom: .5em
   margin-right: .5em
   border: 1px solid Gainsboro
-  
+
   &:hover
     border-color: SlateGrey
-    
 
-.start  
+
+.start, .log, .online
   color: black
   background-color: Azure
   /* for webkit browsers */
   background: -webkit-gradient(linear, left top, left bottom, from(Azure), to(LightCyan))
   /* for firefox 3.6+ */
   background: -moz-linear-gradient(top,  Azure,  AliceBlue)
-  
-.stop, .clear      
+
+.stop, .clear, .offline
   color: white
   background-color: Crimson
   /* for webkit browsers */
   background: -webkit-gradient(linear, left top, left bottom, from(Crimson), to(DarkRed))
   /* for firefox 3.6+ */
   background: -moz-linear-gradient(top,  Crimson,  DarkRed)
-  
+
 .button.disabled
   color: Silver
   background-color: WhiteSmoke
@@ -60,10 +62,10 @@ body
   background: -webkit-gradient(linear, left top, left bottom, from(white), to(WhiteSmoke))
   /* for firefox 3.6+ */
   background: -moz-linear-gradient(top,  white,  WhiteSmoke)
-  
+
   &:hover
     border-color: Gainsboro
-  
+
 
 #debug
   padding: 1em
