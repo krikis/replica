@@ -101,13 +101,15 @@
           delivery_queue = JSON.parse localStorage._delivery_queue
           delivery_queue[data.id] ?= {}
           delivery_queue[data.id][data.vector[data.id].toString()] = data
+          end = (parseInt(number) for number of delivery_queue[data.id]).min()
+          end ?= data.vector[data.id] - 1
           localStorage._delivery_queue = JSON.stringify delivery_queue
           document.visualize_data_flow("#queue", key, value, old_value, false, true)
           nack =
             id: localStorage._id
             dest: data.id
             start: vector[data.id] + 1
-            end: data.vector[data.id] - 1 # TODO: take into account queued messages
+            end: end
             nack: true
           window.web_socket.send JSON.stringify nack
           return

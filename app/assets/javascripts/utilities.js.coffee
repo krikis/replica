@@ -10,6 +10,14 @@ unless Array::delete?
 unless Array::empty?
   Array::empty = -> 
     @length == 0
+    
+unless Array::max?
+  Array::max = ->
+    Math.max.apply Math, @ unless @empty()
+
+unless Array::min?
+  Array::min = ->
+    Math.min.apply Math, @ unless @empty()
 
 @random_color = ->
   hex = Math.abs(Math.random() * 0xFFFFFF << 0).toString 16
