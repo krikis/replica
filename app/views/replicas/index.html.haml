@@ -26,6 +26,9 @@
         # reset reconnection timeouts
         window.prev_reconnect_on = 1
         window.reconnect_on = 2
+        $("#offbutton").html("Offline")
+                       .removeClass("online")
+                       .addClass("offline")
         debug "connected..."
         window.web_socket.send JSON.stringify(
           id: localStorage._id
@@ -61,6 +64,9 @@
 
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
+        $("#offbutton").html("Reconnect")
+                       .removeClass("offline")
+                       .addClass("online")
         debug "socket closed"
         # debug localStorage._index, "Gainsboro"
         unless window.offline?
@@ -78,7 +84,7 @@
       {key, value, old_value} = data
       local_old_value = localStorage[key]
       local_old_value ?= "#ffffff"
-      unless localStorage._id == data.id      
+      unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
         vector[data.id] ?= 0
         debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
@@ -98,13 +104,13 @@
           delivery_queue[data.id][data.vector[data.id].toString()] = data
           localStorage._delivery_queue = JSON.stringify delivery_queue
           document.visualize_data_flow("#queue", key, value, old_value, false, true)
-          nack = 
+          nack =
             id: localStorage._id
             dest: data.id
             start: vector[data.id] + 1
             end: data.vector[data.id] - 1 # TODO: take into account queued messages
             nack: true
-          window.web_socket.send JSON.stringify nack            
+          window.web_socket.send JSON.stringify nack
           return
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -113,7 +119,7 @@
         # update the vector
         vector[data.id] = data.vector[data.id]
         localStorage._vector = JSON.stringify vector
-        
+
       # Actually store the data
       localStorage[key] = value
       # Visualize the data stored
@@ -122,18 +128,18 @@
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
-      
-    @visualize_data_flow = (id, key, top_color, bottom_color, warning = false, scroll = false) ->  
+
+    @visualize_data_flow = (id, key, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{key}' class='color_column'>").appendTo("\#{id}") if $("\#{id} > #\#{key}").length == 0
       color_box = $("<div class='color_box'>")
       unless scroll
         color_box.prependTo("\#{id} > #\#{key}")
       else
-        color_box.insertAfter("\#{id} > #\#{key} > .color_stub")      
+        color_box.insertAfter("\#{id} > #\#{key} > .color_stub")
       color_box.css("border", "1px solid red") if warning
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{id} > #\#{key}").scrollTo(".color_box:last-child") if scroll
-       
+
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
@@ -277,15 +283,9 @@
 
       $("#offbutton").click ->
         if $(this).html() == "Offline"
-          $(this).html("Online")
-                 .removeClass("offline")
-                 .addClass("online")
           window.offline = true
           window.web_socket.close()
         else
-          $(this).html("Offline")
-                 .removeClass("online")
-                 .addClass("offline")
           delete window.offline
           document.initSocket()
 
