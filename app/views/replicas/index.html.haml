@@ -91,7 +91,7 @@
       local_old_value ?= "#ffffff"
       unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
-        vector[data.id] ?= 0
+        vector[data.id] ?= -1
         # debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
@@ -129,15 +129,15 @@
       # Actually store the data
       localStorage[key] = value
       # Visualize the data stored
-      document.visualize_data_flow("#data", key, value, old_value, old_value != local_old_value)
+      document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#data", key, value, old_value, old_value != local_old_value)
       # color = "Gainsboro"
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
 
-    @visualize_data_flow = (container, column, top_color, bottom_color, warning = false, scroll = false) ->
+    @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
-      color_box = $("<div class='color_box'>")
+      color_box = $("<div id='\#{id}' class='color_box'>")
       unless scroll
         color_box.prependTo("\#{container} > #\#{column}")
       else
