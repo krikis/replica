@@ -123,7 +123,7 @@
                                                         end,
                                                         data.id,
                                                         queue
-          unless false in missing_result
+          if true in missing_result # at least one nack was sent or no matching element was found in the queue
             delivery_queue[data.id].push data
             localStorage._delivery_queue = JSON.stringify delivery_queue
             document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
@@ -135,7 +135,6 @@
         # update the vector
         vector[data.id] = data.vector[data.id]
         localStorage._vector = JSON.stringify vector
-        return true # the data was consumed
 
       # Actually store the data
       localStorage[key] = value
@@ -145,6 +144,7 @@
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
+      return true # the data was consumed
 
     @handle_missing = (id, start, end, data_id, queue) ->      
       nack_index = JSON.parse localStorage._nack_index
@@ -159,13 +159,14 @@
           nack: true
         debug "Acquiring missing messages for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
-        return false
+        return true
       else if queue
         debug "Hey, I'm dequeueing! How come?"
         @consume_rack
           id: id
           rack: []
-        return true
+        return false
+      return true
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
@@ -190,26 +191,30 @@
     @consume_rack = (data) ->
       # consume rack
       nack_result = (@store_data data_part for data_part in data.rack)   
-      # process queued values  
-      queue_result = [] 
-      data_id = data.id
-      delivery_queue = JSON.parse localStorage._delivery_queue
-      nack_index = JSON.parse localStorage._nack_index
-      until false in queue_result
-        queued = delivery_queue[data_id]
-        queued ?= []
-        delete delivery_queue[data_id]
-        localStorage._delivery_queue = JSON.stringify delivery_queue
-        debug "Consuming queue for \#{data_id}", "CornflowerBlue"
-        queue_result = for data_part in queued
-          # debug data_part
-          $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-          @store_data data_part
-        new_data_id = nack_index[data_id]
-        # reset nack index
-        delete nack_index[new_data_id] unless false in queue_result
+      unless false in nack_result
+        # process queued values  
+        queue_result = [] 
+        data_id = data.id
+        delivery_queue = JSON.parse localStorage._delivery_queue
+        nack_index = JSON.parse localStorage._nack_index
+        until false in queue_result
+          queued = delivery_queue[data_id]
+          queued ?= []
+          delete delivery_queue[data_id]
+          localStorage._delivery_queue = JSON.stringify delivery_queue
+          debug "Consuming queue for \#{data_id}", "CornflowerBlue"
+          queue_result = for data_part in queued
+            # debug data_part
+            $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
+            @store_data data_part
+          new_data_id = nack_index[data_id]
+          # reset nack index
+          delete nack_index[data_id] unless false in queue_result
+          break if new_data_id == data_id # all queues processed
+          data_id = new_data_id
       localStorage._nack_index = JSON.stringify nack_index
-      debug "Resuming normal operation", "CornflowerBlue"    
+      unless false in nack_result or false in queue_result
+        debug "Resuming normal operation", "CornflowerBlue"    
     
     @stop = ->
       window.interval_id ?= -1
