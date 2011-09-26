@@ -1,7 +1,8 @@
 
 :coffeescript
-  $(document).ready ->
-    debug = (string, color="black") ->
+  $ ->
+    debug = (string, color="black", json=true) ->
+      string = string.replace(/,/g, ', ').replace(/":/g, '": ') if json
       paragraph = $("<p>\#{string}<\p>")
       paragraph.appendTo("#debug")
       paragraph.css("color", color)
@@ -17,7 +18,7 @@
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
       localStorage._vector ?= JSON.stringify {}
-      localStorage._send_queue ?= JSON.stringify {}
+      localStorage._send_queue ?= JSON.stringify []
       localStorage._delivery_queue ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
@@ -34,31 +35,36 @@
           id: localStorage._id
           subscribe: true
 
-      web_socket.onmessage = (evt) ->        
-        debug evt.data, "Gainsboro"
+      web_socket.onmessage = (evt) ->
+        # debug evt.data, "Gainsboro"
         # fetch data from localstorage
         id = localStorage._id
         index = JSON.parse localStorage._index
         data = JSON.parse evt.data
-        if data.index?                                 # set the initial index
+        if data.index?                                    # set the initial index
           data.index[data.index.length] = id unless id in data.index
           index = data.index
-        else if data.subscribe? and data.id != id      # handle subscription
+          # save index updates to localstorage
+          localStorage._index = JSON.stringify(index)
+        else if data.subscribe? and data.id != id         # handle subscription
           index[index.length] = data.id
-        else if data.unsubscribe and data.id != id     # handle unsubscription
+          # save index updates to localstorage
+          localStorage._index = JSON.stringify(index)
+        else if data.unsubscribe? and data.id != id       # handle unsubscription
           index.delete data.id
-        else if data.disable_clear
+          # save index updates to localstorage
+          localStorage._index = JSON.stringify(index)
+        else if data.disable_clear?                       # disable clear data button
           $(".clear").addClass("disabled")
-        else if data.clear
+        else if data.clear?                               # clear all data in the local stora and reset system variables
           document.clear_data()
-        else if data.nack
+        else if data.nack?                                # handle multicast nack
           debug evt.data
-        else if data.id != id
+          document.send_rack data
+        else if data.rack?                                # consume multicast rack
+          debug evt.data
+        else if data.id != id                             # consume multicast messages
           document.store_data data
-          return
-        # finally
-        # save index updates to localstorage
-        localStorage._index = JSON.stringify(index)
         # debug localStorage._index, "Gainsboro"
 
       web_socket.onclose = ->
@@ -97,21 +103,20 @@
           return
         # There are messages missing from the sender
         if vector[data.id] + 1 < data.vector[data.id]
-          debug "Missing messages from sender!", "Crimson"
           delivery_queue = JSON.parse localStorage._delivery_queue
           delivery_queue[data.id] ?= {}
+          if (number for number of delivery_queue[data.id]).empty()
+            debug "Missing messages from sender!", "Crimson"
+            nack =
+              id: localStorage._id
+              dest: data.id
+              start: vector[data.id] + 1
+              end: data.vector[data.id] - 1
+              nack: true
           delivery_queue[data.id][data.vector[data.id].toString()] = data
-          end = (parseInt(number) for number of delivery_queue[data.id]).min()
-          end ?= data.vector[data.id] - 1
           localStorage._delivery_queue = JSON.stringify delivery_queue
           document.visualize_data_flow("#queue", key, value, old_value, false, true)
-          nack =
-            id: localStorage._id
-            dest: data.id
-            start: vector[data.id] + 1
-            end: end
-            nack: true
-          window.web_socket.send JSON.stringify nack
+          window.web_socket.send JSON.stringify nack if nack?
           return
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -130,23 +135,30 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
 
-    @visualize_data_flow = (id, key, top_color, bottom_color, warning = false, scroll = false) ->
-      $("<div id='\#{key}' class='color_column'>").appendTo("\#{id}") if $("\#{id} > #\#{key}").length == 0
+    @visualize_data_flow = (container, column, top_color, bottom_color, warning = false, scroll = false) ->
+      $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
       color_box = $("<div class='color_box'>")
       unless scroll
-        color_box.prependTo("\#{id} > #\#{key}")
+        color_box.prependTo("\#{container} > #\#{column}")
       else
-        color_box.insertAfter("\#{id} > #\#{key} > .color_stub")
+        color_box.insertAfter("\#{container} > #\#{column} > .color_stub")
       color_box.css("border", "1px solid red") if warning
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
-      $("\#{id} > #\#{key}").scrollTo(".color_box:last-child") if scroll
+      $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
 
+    @send_rack = (data) ->
+      send_queue = JSON.parse localStorage._send_queue
+      {start, end} = data
+      window.web_socket.send JSON.stringify
+        id: localStorage._id
+        dest: data.id
+        rack: send_queue[start..end]
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
-      localStorage._send_queue = JSON.stringify {}
-      localStorage._vector = JSON.stringify {}
+      localStorage._vector = JSON.stringify {}  
+      localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("")
@@ -227,15 +239,17 @@
 #id= "#{session[:key]}"
 
 :coffeescript
-  $(document).ready ->
+  $ ->
     # fetch data from localstorage
     id = localStorage._id
     index = JSON.parse localStorage._index
     @send_data = ->
       # increment vector timestamp for this process
       vector = JSON.parse localStorage._vector
-      vector[localStorage._id] ?= 0
-      count = ++vector[localStorage._id]
+      unless vector[localStorage._id]?
+        count = vector[localStorage._id] = 0
+      else
+        count = ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
       # generate data for localstorage
       number = (Math.floor(Math.random() * 20) + 1).toString()
@@ -253,7 +267,7 @@
         vector: vector
       # push the message in the sent queue for later reference
       send_queue = JSON.parse localStorage._send_queue
-      send_queue[count.toString()] = data
+      send_queue[count] = data
       localStorage._send_queue = JSON.stringify send_queue
       # send and store the data
       window.web_socket.send JSON.stringify data
