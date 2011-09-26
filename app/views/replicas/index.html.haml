@@ -61,11 +61,13 @@
           $(".clear").addClass("disabled")
         else if data.clear?                               # clear all data in the local stora and reset system variables
           document.clear_data()
+        else if data.arresto_momentum?
+          document.stop()
         else if data.nack?                                # handle multicast nack
           debug evt.data
           document.send_rack data
         else if data.rack?                                # consume multicast rack
-          # debug evt.data
+          debug evt.data
           document.consume_rack data
         else if data.id != id                             # consume multicast messages
           document.store_data data
@@ -194,6 +196,15 @@
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
         @store_data data_part
       debug "Resuming normal operation", "CornflowerBlue"
+    
+    @stop = ->
+      window.interval_id ?= -1
+      window.clearInterval window.interval_id
+      delete window.interval_id
+      $("#startbutton").html("Start")
+                         .removeClass("stop")
+                         .addClass("start")
+      $(".clear").removeClass("disabled")
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
@@ -212,6 +223,7 @@
 #clearbutton.button.clear Clear
 #offbutton.button.offline Offline
 #logbutton.button.log Hide Log
+#arresto.button.arresto Arresto Momentum
 -# TODO add speed dial
 
 %div.container
@@ -383,3 +395,9 @@
         else
           $(this).html("Show Log")
           $("#debug").hide()
+      
+      $("#arresto").click ->
+        window.web_socket.send JSON.stringify
+          id: id
+          arresto_momentum: true
+        
