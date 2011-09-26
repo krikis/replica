@@ -115,9 +115,13 @@
               start: vector[data.id] + 1
               end: data.vector[data.id] - 1
               nack: true
-          delivery_queue[data.id].push data
-          localStorage._delivery_queue = JSON.stringify delivery_queue
-          document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
+          else if delivery_queue[data.id][0].vector[data.id] == vector[data.id] + 1
+            debug "Artificial consume rack because of performance issues", "blue"
+            @consume_rack(rack: [data])
+          else
+            delivery_queue[data.id].push data
+            localStorage._delivery_queue = JSON.stringify delivery_queue
+            document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
           window.web_socket.send JSON.stringify nack if nack?
           return
         # The received data is corrupt
