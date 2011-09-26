@@ -2,6 +2,7 @@
 :coffeescript
   $ ->
     debug = (string, color="black", json=true) ->
+      string = JSON.stringify string unless typeof string == "string"
       string = string.replace(/,/g, ', ').replace(/":/g, '": ') if json
       paragraph = $("<p>\#{string}<\p>")
       paragraph.appendTo("#debug")
@@ -93,7 +94,7 @@
       unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
         vector[data.id] ?= -1
-        # debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
+        debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
@@ -105,8 +106,8 @@
         # There are messages missing from the sender
         if vector[data.id] + 1 < data.vector[data.id]
           delivery_queue = JSON.parse localStorage._delivery_queue
-          delivery_queue[data.id] ?= {}
-          if (number for number of delivery_queue[data.id]).empty()
+          delivery_queue[data.id] ?= []
+          if delivery_queue[data.id].empty()
             debug "Missing messages from sender!", "Crimson"
             nack =
               id: localStorage._id
@@ -114,9 +115,9 @@
               start: vector[data.id] + 1
               end: data.vector[data.id] - 1
               nack: true
-          delivery_queue[data.id][data.vector[data.id].toString()] = data
+          delivery_queue[data.id].push data
           localStorage._delivery_queue = JSON.stringify delivery_queue
-          document.visualize_data_flow("#queue", key, value, old_value, false, true)
+          document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
           window.web_socket.send JSON.stringify nack if nack?
           return
         # The received data is corrupt
@@ -150,18 +151,30 @@
     @send_rack = (data) ->
       send_queue = JSON.parse localStorage._send_queue
       {start, end} = data
+      $("#data #\#{localStorage._id}_\#{number}").css("border", "1px solid green") for number in [start..end]
       window.web_socket.send JSON.stringify
         id: localStorage._id
         dest: data.id
         rack: send_queue[start..end]
-        
-    @consume_rack = (data) ->
-      
 
+    @consume_rack = (data) ->
+      delivery_queue = JSON.parse localStorage._delivery_queue
+      queued = delivery_queue[data.id]
+      delete delivery_queue[data.id]
+      # consume rack
+      for data_part in data.rack
+        # debug data_part
+        @store_data data_part
+      # consume queue
+      for data_part in queued
+        # debug data_part
+        $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").css("border", "1px solid green")
+        @store_data data_part
+        
     @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
-      localStorage._vector = JSON.stringify {}  
+      localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
@@ -278,8 +291,10 @@
       document.store_data(data)
 
     if Modernizr.localstorage and Modernizr.websockets
-      $(".button").each @.onselectstart = ->
-        false
+      for elem in $(".button")
+        do (elem) ->
+          elem.onselectstart = ->
+            false
       $("#startbutton").click ->
         unless window.interval_id?
           window.web_socket.send JSON.stringify
