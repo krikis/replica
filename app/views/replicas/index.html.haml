@@ -453,4 +453,33 @@
           window.web_socket.send JSON.stringify
             id: id
             arresto_momentum: true
+            
+      $("#queue").click ->
+        if $(@).css("overflow-y") == "hidden"
+          $(@).css("overflow-y", "auto")
+      
+      $("#queue").hover ->
+        ;
+      , ->
+        $(@).css("overflow-y", "hidden")
+            
+      $("#data").click ->
+        if $(@).css("overflow-y") == "hidden"
+          $(@).css("overflow-y", "auto")
+      
+      $("#data").hover ->
+        ;
+      , ->
+        $(@).css("overflow-y", "hidden")
+            
+      $("#debug").click ->
+        if $(@).css("overflow-y") == "hidden"
+          $(@).css("overflow-y", "auto")
+      
+      $("#debug").hover ->
+        ;
+      , ->
+        $(@).css("overflow-y", "hidden")
+        
+        
         
