@@ -391,10 +391,12 @@
       $("#logbutton").click ->
         if $(this).html() == "Show Log"
           $(this).html("Hide Log")
+          $("#data").css("height", "24em")
           $("#debug").show()
         else
           $(this).html("Show Log")
           $("#debug").hide()
+          $("#data").css("height", "41.65em")
       
       $("#arresto").click ->
         window.web_socket.send JSON.stringify
