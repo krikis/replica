@@ -193,7 +193,11 @@
 
     @consume_rack = (data) ->
       # consume rack
-      nack_result = (@store_data data_part for data_part in data.rack)   
+      nack_result = []
+      for data_part in data.rack
+        result = @store_data data_part
+        nack_result.push result
+        break unless result
       unless false in nack_result
         # process queued values  
         queue_result = [] 
@@ -206,10 +210,13 @@
           delete delivery_queue[data_id]
           localStorage._delivery_queue = JSON.stringify delivery_queue
           debug "Consuming queue for \#{data_id}", "CornflowerBlue"
-          queue_result = for data_part in queued
+          queue_result = []
+          for data_part in queued
             # debug data_part
             $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-            @store_data data_part
+            result = @store_data data_part
+            queue_result.push result
+            break unless result
           new_data_id = nack_index[data_id]
           # reset nack index
           unless false in queue_result
