@@ -17,12 +17,15 @@
       # TODO: preinitialize #data with localStorage data
       # TODO: preinitialize #queue with localStorage queue
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
+      # set time window for sending nacks
+      window.nack_window = 10000
       # initialize local storage system variables
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
       localStorage._vector ?= JSON.stringify {}
       localStorage._send_queue ?= JSON.stringify []
       localStorage._delivery_queue ?= JSON.stringify {}
+      localStorage._high_ends ?= JSON.stringify {}
       localStorage._nack_index ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
@@ -105,26 +108,40 @@
           debug "Old message", "Crimson"
           return true # the data was skipped
         # Detect missing messages
-        missing_id = data.id if vector[data.id] + 1 < data.vector[data.id]
-        missing_id ?= (id for id of data.vector when id != data.id and vector[id] < data.vector[id])[0]
+        high_ends = JSON.parse localStorage._high_ends
+        missing_id = data.id if vector[data.id] + 1 < data.vector[data.id] and
+                                (high_ends[data.id] >= data.vector[data.id] - 1 or
+                                 high_ends[data.id] = data.vector[data.id] - 1)
+        missing_ids = (id for id of data.vector when id != data.id and
+                                                     vector[id] < data.vector[id] and
+                                                     (high_ends[id] >= data.vector[id] or
+                                                      high_ends[id] = data.vector[id]))
+        missing_id ?= missing_ids[0]
+        localStorage._high_ends = JSON.stringify high_ends
         # There are messages missing
         if missing_id?
           debug "Missing messages!", "Crimson"
+          @enqueue data
+          document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                                       "#queue",                               # container
+                                       key,                                    # column
+                                       value,                                  # top_color
+                                       old_value,                              # bottom_color
+                                       false,                                  # warning
+                                       true                                    # scroll
           delivery_queue = JSON.parse localStorage._delivery_queue
-          # debug missing_id
           delivery_queue[missing_id] ?= []
-          queue = (queued = delivery_queue[missing_id][0])? and 
-                  queued.vector[missing_id] == vector[missing_id] + 1 # should the queue be consumed?
-          end = if missing_id == data.id then data.vector[missing_id] - 1 else data.vector[missing_id]
-          missing_result = document.handle_missing missing_id,
-                                                      vector[missing_id] + 1,
-                                                      end,
-                                                      data.id,
-                                                      queue
-          if missing_result # at least one nack was sent or no matching element was found in the queue
-            @enqueue data
-            document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
-            return false # the data was qeued
+          if (queued = delivery_queue[missing_id][0])? and
+              queued.vector[missing_id] == vector[missing_id] + 1 # the missing element in on the queue
+            @consume_rack
+              id: missing_id
+              rack: []
+          else # consider sending a nack
+            document.handle_missing missing_id,                   # missing id
+                                    vector[missing_id] + 1,       # start
+                                    high_ends[missing_id],        # end
+                                    data.id                       # data id
+          return false # the data was qeued
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
           debug "Checksum Error!", "Crimson"
@@ -136,28 +153,43 @@
       # Actually store the data
       localStorage[key] = value
       # Visualize the data stored
-      document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#data", key, value, old_value, old_value != local_old_value)
+      document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                                   "#data",                                # container
+                                   key,                                    # column
+                                   value,                                  # top_color
+                                   old_value,                              # bottom_color
+                                   old_value != local_old_value            # warning
       # color = "Gainsboro"
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
-      
-    @enqueue = (data) ->  
+
+    @enqueue = (data) ->
       delivery_queue = JSON.parse localStorage._delivery_queue
       delivery_queue[data.id] ?= []
       delivery_queue[data.id].push data
       delivery_queue[data.id].sort document.by_vector_count
       localStorage._delivery_queue = JSON.stringify delivery_queue
-      
+
     # sort data by vector count for its id
     @by_vector_count = (first, last) ->
       first.vector[first.id] - last.vector[last.id]
 
-    @handle_missing = (id, start, end, data_id, queue) ->      
+    @handle_missing = (id, start, end, data_id) ->
       nack_index = JSON.parse localStorage._nack_index
-      unless nack_index[id]?
-        nack_index[id] = data_id
+      now = new Date().getTime()
+      if not nack_index[id]? or                         # no nack sent yet
+         nack_index[id].end < end or                    # previous nack doesn't include all messages
+         now - nack_index[id].time > window.nack_window # nack timeout
+        # only request the messages that are not requested yet
+        start = nack_index[id].end + 1 if nack_index[id]? and
+                                          now - nack_index[id].time <= window.nack_window
+        nack_index[id] =
+          applicant: data_id
+          start: start
+          end: end
+          time: new Date().getTime()
         localStorage._nack_index = JSON.stringify nack_index
         nack =
           id: localStorage._id
@@ -167,13 +199,6 @@
           nack: true
         debug "Acquiring missing messages for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
-        return true
-      else if queue
-        @consume_rack
-          id: id
-          rack: []
-        return false
-      return true
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
@@ -205,8 +230,8 @@
         else
           @enqueue data_part
       unless false in nack_result
-        # process queued values  
-        queue_result = [] 
+        # process queued values
+        queue_result = []
         data_id = data.id
         delivery_queue = JSON.parse localStorage._delivery_queue
         nack_index = JSON.parse localStorage._nack_index
@@ -224,7 +249,8 @@
               queue_result.push result
             else
               @enqueue data_part
-          new_data_id = nack_index[data_id]
+          break unless nack_index[data_id]?
+          new_data_id = nack_index[data_id].applicant
           # reset nack index
           unless false in queue_result
             delete nack_index[data_id]
@@ -232,8 +258,8 @@
           break if new_data_id == data_id # all queues processed
           data_id = new_data_id
       unless false in nack_result or false in queue_result
-        debug "Resuming normal operation", "CornflowerBlue"    
-    
+        debug "Resuming normal operation", "CornflowerBlue"
+
     @stop = ->
       window.interval_id ?= -1
       window.clearInterval window.interval_id
@@ -249,6 +275,7 @@
       localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
+      localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
@@ -360,7 +387,7 @@
       setTimeout ->
         window.semaphore = false
       , 500
-    
+
     # fetch data from localstorage
     id = localStorage._id
     index = JSON.parse localStorage._index
@@ -447,22 +474,21 @@
             $(this).html("Show Log")
             $("#debug").hide()
             $("#data").css("height", "41.65em")
-      
+
       $("#arresto").click ->
         if document.acquire_semaphore()
           window.web_socket.send JSON.stringify
             id: id
             arresto_momentum: true
-      
+
       $("#data").hover ->
         $(@).css("overflow-y", "auto")
       , ->
         $(@).css("overflow-y", "hidden")
-      
+
       $("#debug").hover ->
         window.stop_scroll_debug = true
       , ->
         delete window.stop_scroll_debug
-        
-        
-        
+
+
