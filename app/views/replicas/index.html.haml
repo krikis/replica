@@ -14,6 +14,7 @@
     window.prev_reconnect_on = 1
     window.reconnect_on = 2
     @initSocket = ->
+      # TODO: preinitialize #data with localStorage data
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
       # initialize local storage system variables
       localStorage._id = "#{session[:key]}"
@@ -94,36 +95,29 @@
       unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
         vector[data.id] ?= -1
-        debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
+        # debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
           return
-        # There are messages missing from processes other than the sender
-        if (errors = id for id of vector when vector[id] < data.vector.id).length > 1
-          debug "Missing messages from others!", "Crimson"
-          return
-        # There are messages missing from the sender
-        if vector[data.id] + 1 < data.vector[data.id]
+        # Detect missing messages
+        missing = (id for id of data.vector when (id != data.id and vector[id] < data.vector[id]) or vector[id] + 1 < data.vector[id])
+        # There are messages missing
+        unless missing.empty()
           delivery_queue = JSON.parse localStorage._delivery_queue
-          delivery_queue[data.id] ?= []
-          if delivery_queue[data.id].empty()
-            debug "Missing messages from sender!", "Crimson"
-            nack =
-              id: localStorage._id
-              dest: data.id
-              start: vector[data.id] + 1
-              end: data.vector[data.id] - 1
-              nack: true
-          else if delivery_queue[data.id][0].vector[data.id] == vector[data.id] + 1
-            debug "Artificial consume rack because of performance issues", "CornflowerBlue"
-            @consume_rack(rack: [data])
-            return
+          delivery_queue[id] ?= []
           delivery_queue[data.id].push data
           localStorage._delivery_queue = JSON.stringify delivery_queue
           document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
-          debug "Acquiring missing messages", "CornflowerBlue"
-          window.web_socket.send JSON.stringify nack if nack?
+          debug missing
+          for id in missing
+            do (id) ->
+              document.handle_missing id, 
+                                      vector[id] + 1, 
+                                      data.vector[id] - 1, 
+                                      delivery_queue, 
+                                      delivery_queue[id].empty(),
+                                      delivery_queue[id][0].vector[id] == vector[id] + 1
           return
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -141,6 +135,22 @@
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
+
+    @handle_missing = (id, start, end, delivery_queue, nack, queue) ->
+      if nack
+        debug "Missing messages!", "Crimson"
+        nack =
+          id: localStorage._id
+          dest: id
+          start: start
+          end: end
+          nack: true
+        debug "Acquiring missing messages", "CornflowerBlue"
+        window.web_socket.send JSON.stringify nack if nack?
+      else if queue
+        @consume_rack
+          id: id
+          rack: []
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
@@ -172,14 +182,14 @@
       for data_part in data.rack
         # debug data_part
         @store_data data_part
-      # consume queue      
+      # consume queue
       debug "Consuming queue", "CornflowerBlue"
       for data_part in queued
         # debug data_part
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
         @store_data data_part
       debug "Resuming normal operation", "CornflowerBlue"
-        
+
     @clear_data = ->
       for key of localStorage when key[0] != '_'
         localStorage.removeItem key
