@@ -99,7 +99,7 @@
       unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
         vector[id] ?= -1 for id of data.vector
-        debug "\#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
+        debug "\#{data.id} => \#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
