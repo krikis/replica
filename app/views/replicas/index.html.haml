@@ -63,6 +63,7 @@
           document.send_rack data
         else if data.rack?                                # consume multicast rack
           debug evt.data
+          document.consume_rack data
         else if data.id != id                             # consume multicast messages
           document.store_data data
         # debug localStorage._index, "Gainsboro"
@@ -153,6 +154,9 @@
         id: localStorage._id
         dest: data.id
         rack: send_queue[start..end]
+        
+    @consume_rack = (data) ->
+      
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
@@ -274,6 +278,8 @@
       document.store_data(data)
 
     if Modernizr.localstorage and Modernizr.websockets
+      $(".button").each @.onselectstart = ->
+        false
       $("#startbutton").click ->
         unless window.interval_id?
           window.web_socket.send JSON.stringify
