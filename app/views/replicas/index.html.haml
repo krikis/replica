@@ -187,7 +187,7 @@
       localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
-      $("#data > .color_column").html("")
+      $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
@@ -244,25 +244,45 @@
 %div.container
   #data
     #key_01.color_column
+      %div.color_stub
     #key_02.color_column
+      %div.color_stub
     #key_03.color_column
+      %div.color_stub
     #key_04.color_column
+      %div.color_stub
     #key_05.color_column
+      %div.color_stub
     #key_06.color_column
+      %div.color_stub
     #key_07.color_column
+      %div.color_stub
     #key_08.color_column
+      %div.color_stub
     #key_09.color_column
+      %div.color_stub
     #key_10.color_column
+      %div.color_stub
     #key_11.color_column
+      %div.color_stub
     #key_12.color_column
+      %div.color_stub
     #key_13.color_column
+      %div.color_stub
     #key_14.color_column
+      %div.color_stub
     #key_15.color_column
+      %div.color_stub
     #key_16.color_column
+      %div.color_stub
     #key_17.color_column
+      %div.color_stub
     #key_18.color_column
+      %div.color_stub
     #key_19.color_column
+      %div.color_stub
     #key_20.color_column
+      %div.color_stub
 #debug
 #id= "#{session[:key]}"
 
