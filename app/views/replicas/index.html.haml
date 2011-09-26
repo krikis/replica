@@ -23,6 +23,7 @@
       localStorage._vector ?= JSON.stringify {}
       localStorage._send_queue ?= JSON.stringify []
       localStorage._delivery_queue ?= JSON.stringify {}
+      localStorage._nack_index ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
 
@@ -102,37 +103,39 @@
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
-          return
+          return true # the data was skipped
         # Detect missing messages
         missing = (id for id of data.vector when (id != data.id and vector[id] < data.vector[id]) or vector[id] + 1 < data.vector[id])
         # There are messages missing
         unless missing.empty()
+          debug "Missing messages!", "Crimson"
           delivery_queue = JSON.parse localStorage._delivery_queue
           delivery_queue[data.id] ?= []
           # debug missing
+          missing_result = []
           for missing_id in missing
             delivery_queue[missing_id] ?= []
-            nack = delivery_queue[missing_id].empty() # should a nack be send?
             queue = (queued = delivery_queue[missing_id][0])? and 
                     queued.vector[missing_id] == vector[missing_id] + 1 # should the queue be consumed?
             end = if missing_id == data.id then data.vector[missing_id] - 1 else data.vector[missing_id]
-            document.handle_missing missing_id,
-                                    vector[missing_id] + 1,
-                                    end,
-                                    delivery_queue,
-                                    nack,
-                                    queue
-          delivery_queue[data.id].push data
-          localStorage._delivery_queue = JSON.stringify delivery_queue
-          document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
-          return
+            missing_result.push document.handle_missing missing_id,
+                                                        vector[missing_id] + 1,
+                                                        end,
+                                                        data.id,
+                                                        queue
+          unless false in missing_result
+            delivery_queue[data.id].push data
+            localStorage._delivery_queue = JSON.stringify delivery_queue
+            document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
+            return false # the data was qeued
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
           debug "Checksum Error!", "Crimson"
-          return
+          return true # TODO: handle this with a nack
         # update the vector
         vector[data.id] = data.vector[data.id]
         localStorage._vector = JSON.stringify vector
+        return true # the data was consumed
 
       # Actually store the data
       localStorage[key] = value
@@ -143,9 +146,11 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
 
-    @handle_missing = (id, start, end, delivery_queue, nack, queue) ->
-      if nack
-        debug "Missing messages!", "Crimson"
+    @handle_missing = (id, start, end, data_id, queue) ->      
+      nack_index = JSON.parse localStorage._nack_index
+      unless nack_index[id]?
+        nack_index[id] = data_id
+        localStorage._nack_index = JSON.stringify nack_index
         nack =
           id: localStorage._id
           dest: id
@@ -153,11 +158,14 @@
           end: end
           nack: true
         debug "Acquiring missing messages for \#{id}", "CornflowerBlue"
-        window.web_socket.send JSON.stringify nack if nack?
+        window.web_socket.send JSON.stringify nack
+        return false
       else if queue
+        debug "Hey, I'm dequeueing! How come?"
         @consume_rack
           id: id
           rack: []
+        return true
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
@@ -180,22 +188,28 @@
         rack: send_queue[start..end]
 
     @consume_rack = (data) ->
-      # get queued values
-      delivery_queue = JSON.parse localStorage._delivery_queue
-      queued = delivery_queue[data.id]
-      delete delivery_queue[data.id]
-      localStorage._delivery_queue = JSON.stringify delivery_queue
       # consume rack
-      for data_part in data.rack
-        # debug data_part
-        @store_data data_part
-      # consume queue
-      debug "Consuming queue for \#{data.id}", "CornflowerBlue"
-      for data_part in queued
-        # debug data_part
-        $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-        @store_data data_part
-      debug "Resuming normal operation", "CornflowerBlue"
+      nack_result = (@store_data data_part for data_part in data.rack)   
+      # process queued values  
+      queue_result = [] 
+      data_id = data.id
+      delivery_queue = JSON.parse localStorage._delivery_queue
+      nack_index = JSON.parse localStorage._nack_index
+      until false in queue_result
+        queued = delivery_queue[data_id]
+        queued ?= []
+        delete delivery_queue[data_id]
+        localStorage._delivery_queue = JSON.stringify delivery_queue
+        debug "Consuming queue for \#{data_id}", "CornflowerBlue"
+        queue_result = for data_part in queued
+          # debug data_part
+          $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
+          @store_data data_part
+        new_data_id = nack_index[data_id]
+        # reset nack index
+        delete nack_index[new_data_id] unless false in queue_result
+      localStorage._nack_index = JSON.stringify nack_index
+      debug "Resuming normal operation", "CornflowerBlue"    
     
     @stop = ->
       window.interval_id ?= -1
@@ -212,6 +226,7 @@
       localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
+      localStorage._nack_index = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
@@ -315,6 +330,14 @@
 
 :coffeescript
   $ ->
+    # semaphore to prevent doubleclick on buttons
+    @acquire_semaphore = ->
+      return false if window.semaphore
+      window.semaphore = true
+      setTimeout ->
+        window.semaphore = false
+      , 500
+    
     # fetch data from localstorage
     id = localStorage._id
     index = JSON.parse localStorage._index
@@ -357,49 +380,54 @@
           elem.onselectstart = ->
             false
       $("#startbutton").click ->
-        unless window.interval_id?
-          window.web_socket.send JSON.stringify
-            id: id
-            disable_clear: true
-          window.interval_id = window.setInterval document.send_data, 1000
-          $(this).html("Stop")
-                 .removeClass("start")
-                 .addClass("stop")
-          $(".clear").addClass("disabled")
-        else
-          window.clearInterval window.interval_id
-          delete window.interval_id
-          $(this).html("Start")
-                 .removeClass("stop")
-                 .addClass("start")
-          $(".clear").removeClass("disabled")
+        if document.acquire_semaphore()
+          unless window.interval_id?
+            window.web_socket.send JSON.stringify
+              id: id
+              disable_clear: true
+            window.interval_id = window.setInterval document.send_data, 1000
+            $(this).html("Stop")
+                   .removeClass("start")
+                   .addClass("stop")
+            $(".clear").addClass("disabled")
+          else
+            window.clearInterval window.interval_id
+            delete window.interval_id
+            $(this).html("Start")
+                   .removeClass("stop")
+                   .addClass("start")
+            $(".clear").removeClass("disabled")
 
       $("#clearbutton").click ->
-        unless $(this).hasClass("disabled")
-          window.web_socket.send JSON.stringify
-            id: id
-            clear: true
+        if document.acquire_semaphore()
+          unless $(this).hasClass("disabled")
+            window.web_socket.send JSON.stringify
+              id: id
+              clear: true
 
       $("#offbutton").click ->
-        if $(this).html() == "Offline"
-          window.offline = true
-          window.web_socket.close()
-        else
-          delete window.offline
-          document.initSocket()
+        if document.acquire_semaphore()
+          if $(this).html() == "Offline"
+            window.offline = true
+            window.web_socket.close()
+          else
+            delete window.offline
+            document.initSocket()
 
       $("#logbutton").click ->
-        if $(this).html() == "Show Log"
-          $(this).html("Hide Log")
-          $("#data").css("height", "24em")
-          $("#debug").show()
-        else
-          $(this).html("Show Log")
-          $("#debug").hide()
-          $("#data").css("height", "41.65em")
+        if document.acquire_semaphore()
+          if $(this).html() == "Show Log"
+            $(this).html("Hide Log")
+            $("#data").css("height", "24em")
+            $("#debug").show()
+          else
+            $(this).html("Show Log")
+            $("#debug").hide()
+            $("#data").css("height", "41.65em")
       
       $("#arresto").click ->
-        window.web_socket.send JSON.stringify
-          id: id
-          arresto_momentum: true
+        if document.acquire_semaphore()
+          window.web_socket.send JSON.stringify
+            id: id
+            arresto_momentum: true
         
