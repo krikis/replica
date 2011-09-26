@@ -123,9 +123,7 @@
                                                       data.id,
                                                       queue
           if missing_result # at least one nack was sent or no matching element was found in the queue
-            delivery_queue[data.id].push data
-            delivery_queue[data.id].sort document.by_vector_count
-            localStorage._delivery_queue = JSON.stringify delivery_queue
+            @enqueue data
             document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
             return false # the data was qeued
         # The received data is corrupt
@@ -145,6 +143,12 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
+      
+    @enqueue = (data) ->  
+      delivery_queue = JSON.parse localStorage._delivery_queue
+      delivery_queue[data.id].push data
+      delivery_queue[data.id].sort document.by_vector_count
+      localStorage._delivery_queue = JSON.stringify delivery_queue
       
     # sort data by vector count for its id
     @by_vector_count = (first, last) ->
@@ -195,9 +199,11 @@
       # consume rack
       nack_result = []
       for data_part in data.rack
-        result = @store_data data_part
-        nack_result.push result
-        break unless result
+        unless false in nack_result
+          result = @store_data data_part
+          nack_result.push result
+        else
+          @enqueue data_part
       unless false in nack_result
         # process queued values  
         queue_result = [] 
@@ -212,11 +218,12 @@
           debug "Consuming queue for \#{data_id}", "CornflowerBlue"
           queue_result = []
           for data_part in queued
-            # debug data_part
-            $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-            result = @store_data data_part
-            queue_result.push result
-            break unless result
+            unless false in queue_result
+              $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
+              result = @store_data data_part
+              queue_result.push result
+            else
+              @enqueue data_part
           new_data_id = nack_index[data_id]
           # reset nack index
           unless false in queue_result
