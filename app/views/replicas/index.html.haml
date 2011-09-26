@@ -7,7 +7,7 @@
       paragraph = $("<p>\#{string}<\p>")
       paragraph.appendTo("#debug")
       paragraph.css("color", color)
-      $("#debug").scrollTo(paragraph, 50)
+      $("#debug").scrollTo(paragraph) unless window.stop_scroll_debug?
     window.debug = debug
 
     # set initial reconnection timeout to 2 seconds
@@ -453,33 +453,16 @@
           window.web_socket.send JSON.stringify
             id: id
             arresto_momentum: true
-            
-      $("#queue").click ->
-        if $(@).css("overflow-y") == "hidden"
-          $(@).css("overflow-y", "auto")
-      
-      $("#queue").hover ->
-        ;
-      , ->
-        $(@).css("overflow-y", "hidden")
-            
-      $("#data").click ->
-        if $(@).css("overflow-y") == "hidden"
-          $(@).css("overflow-y", "auto")
       
       $("#data").hover ->
-        ;
+        $(@).css("overflow-y", "auto")
       , ->
         $(@).css("overflow-y", "hidden")
-            
-      $("#debug").click ->
-        if $(@).css("overflow-y") == "hidden"
-          $(@).css("overflow-y", "auto")
       
       $("#debug").hover ->
-        ;
+        window.stop_scroll_debug = true
       , ->
-        $(@).css("overflow-y", "hidden")
+        delete window.stop_scroll_debug
         
         
         
