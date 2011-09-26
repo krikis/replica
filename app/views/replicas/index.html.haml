@@ -31,7 +31,7 @@
         $("#offbutton").html("Offline")
                        .removeClass("online")
                        .addClass("offline")
-        debug "connected..."
+        # debug "connected..."
         window.web_socket.send JSON.stringify
           id: localStorage._id
           subscribe: true
@@ -63,7 +63,7 @@
           debug evt.data
           document.send_rack data
         else if data.rack?                                # consume multicast rack
-          debug evt.data
+          # debug evt.data
           document.consume_rack data
         else if data.id != id                             # consume multicast messages
           document.store_data data
@@ -74,7 +74,7 @@
         $("#offbutton").html("Reconnect")
                        .removeClass("offline")
                        .addClass("online")
-        debug "socket closed"
+        # debug "socket closed"
         # debug localStorage._index, "Gainsboro"
         unless window.offline?
           debug "reconnecting in \#{window.reconnect_on} seconds...", "Gainsboro"
@@ -116,12 +116,13 @@
               end: data.vector[data.id] - 1
               nack: true
           else if delivery_queue[data.id][0].vector[data.id] == vector[data.id] + 1
-            debug "Artificial consume rack because of performance issues", "blue"
+            debug "Artificial consume rack because of performance issues", "CornflowerBlue"
             @consume_rack(rack: [data])
-          else
-            delivery_queue[data.id].push data
-            localStorage._delivery_queue = JSON.stringify delivery_queue
-            document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
+            return
+          delivery_queue[data.id].push data
+          localStorage._delivery_queue = JSON.stringify delivery_queue
+          document.visualize_data_flow("\#{data.id}_\#{data.vector[data.id]}", "#queue", key, value, old_value, false, true)
+          debug "Acquiring missing messages", "CornflowerBlue"
           window.web_socket.send JSON.stringify nack if nack?
           return
         # The received data is corrupt
@@ -162,18 +163,22 @@
         rack: send_queue[start..end]
 
     @consume_rack = (data) ->
+      # get queued values
       delivery_queue = JSON.parse localStorage._delivery_queue
       queued = delivery_queue[data.id]
       delete delivery_queue[data.id]
+      localStorage._delivery_queue = JSON.stringify delivery_queue
       # consume rack
       for data_part in data.rack
         # debug data_part
         @store_data data_part
-      # consume queue
+      # consume queue      
+      debug "Consuming queue", "CornflowerBlue"
       for data_part in queued
         # debug data_part
-        $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").css("border", "1px solid green")
+        $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
         @store_data data_part
+      debug "Resuming normal operation", "CornflowerBlue"
         
     @clear_data = ->
       for key of localStorage when key[0] != '_'
@@ -183,6 +188,7 @@
       localStorage._delivery_queue = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("")
+      $("#debug").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
       document.initSocket()                              # initialize a web socket
@@ -191,6 +197,7 @@
 #clearbutton.button.clear Clear
 #offbutton.button.offline Offline
 #logbutton.button.log Hide Log
+-# TODO add speed dial
 
 %div.container
   #queue
@@ -295,6 +302,9 @@
       document.store_data(data)
 
     if Modernizr.localstorage and Modernizr.websockets
+      # TODO disable doubleclick
+      # TODO disable log scrolling on mouseover
+      # TODO show log scrollbar on mouseover
       for elem in $(".button")
         do (elem) ->
           elem.onselectstart = ->
