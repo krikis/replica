@@ -111,7 +111,6 @@
         if missing_id?
           debug "Missing messages!", "Crimson"
           delivery_queue = JSON.parse localStorage._delivery_queue
-          delivery_queue[data.id] ?= []
           # debug missing_id
           delivery_queue[missing_id] ?= []
           queue = (queued = delivery_queue[missing_id][0])? and 
@@ -146,6 +145,7 @@
       
     @enqueue = (data) ->  
       delivery_queue = JSON.parse localStorage._delivery_queue
+      delivery_queue[data.id] ?= []
       delivery_queue[data.id].push data
       delivery_queue[data.id].sort document.by_vector_count
       localStorage._delivery_queue = JSON.stringify delivery_queue
