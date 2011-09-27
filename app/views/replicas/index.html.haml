@@ -238,6 +238,8 @@
         until false in queue_result
           queued = delivery_queue[data_id]
           queued ?= []
+          delete delivery_queue[data_id]
+          localStorage._delivery_queue = JSON.stringify delivery_queue
           debug "Consuming queue for \#{data_id}", "CornflowerBlue"
           queue_result = []
           for data_part in queued
@@ -247,8 +249,6 @@
               queue_result.push result
             else
               @enqueue data_part
-          delete delivery_queue[data_id]
-          localStorage._delivery_queue = JSON.stringify delivery_queue
           break unless nack_index[data_id]?
           new_data_id = nack_index[data_id].applicant
           # reset nack index
