@@ -6,7 +6,12 @@ $ ->
       until (index = @indexOf value) == -1
         deleted = @splice index, 1
       deleted
-
+      
+  # delete at specified index
+  unless Array::delete_at?
+    Array::delete_at = (index) -> 
+      @splice index, 1
+  
   # check whether an array is empty
   unless Array::empty?
     Array::empty = -> 

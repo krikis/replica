@@ -221,43 +221,36 @@
         rack: send_queue[start..end]
 
     @consume_rack = (data) ->
-      # consume rack
-      nack_result = []
+      # put rack on the queue
       for data_part in data.rack
-        unless false in nack_result
-          result = @store_data data_part
-          nack_result.push result
-        else
-          @enqueue data_part
-      unless false in nack_result
-        # process queued values
-        queue_result = []
-        data_id = data.id
-        delivery_queue = JSON.parse localStorage._delivery_queue
-        nack_index = JSON.parse localStorage._nack_index
-        until false in queue_result
+        @enqueue data_part
+      # process queued values
+      data_id = data.id
+      loop
+        process_result = true
+        while process_result
+          delivery_queue = JSON.parse localStorage._delivery_queue
           queued = delivery_queue[data_id]
           queued ?= []
-          delete delivery_queue[data_id]
+          break if queued.empty?
+          data_part = queued.shift
           localStorage._delivery_queue = JSON.stringify delivery_queue
-          debug "Consuming queue for \#{data_id}", "CornflowerBlue"
-          queue_result = []
-          for data_part in queued
-            unless false in queue_result
-              $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-              result = @store_data data_part
-              queue_result.push result
-            else
-              @enqueue data_part
-          break unless nack_index[data_id]?
-          new_data_id = nack_index[data_id].applicant
-          # reset nack index
-          unless false in queue_result
-            delete nack_index[data_id]
-            localStorage._nack_index = JSON.stringify nack_index
-          break if new_data_id == data_id # all queues processed
-          data_id = new_data_id
-      unless false in nack_result or false in queue_result
+          process_result = @store_data data_part
+        delivery_queue = JSON.parse localStorage._delivery_queue
+        queued = delivery_queue[data_id]
+        queued ?= []
+        process_result = false
+        break unless queued.empty()
+        nack_index = JSON.parse localStorage._nack_index
+        break unless nack_index[data_id]?
+        new_data_id = nack_index[data_id].applicant
+        delete nack_index[data_id]
+        localStorage._nack_index = JSON.stringify nack_index
+        break if new_data_id == data_id
+      delivery_queue = JSON.parse localStorage._delivery_queue
+      queued = delivery_queue[data_id]
+      queued ?= []
+      if queued.empty()
         debug "Resuming normal operation", "CornflowerBlue"
 
     @stop = ->
