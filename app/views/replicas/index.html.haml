@@ -121,22 +121,22 @@
         # There are messages missing
         if missing_id?
           debug "Missing messages!", "Crimson"
+          @enqueue data
+          document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                                       "#queue",                               # container
+                                       key,                                    # column
+                                       value,                                  # top_color
+                                       old_value,                              # bottom_color
+                                       false,                                  # warning
+                                       true                                    # scroll
           delivery_queue = JSON.parse localStorage._delivery_queue
           delivery_queue[missing_id] ?= []
           if (queued = delivery_queue[missing_id][0])? and
               queued.vector[missing_id] == vector[missing_id] + 1 # the missing element in on the queue
-            return @consume_rack
+            @consume_rack
               id: missing_id
               rack: []
           else # consider sending a nack
-            @enqueue data
-            document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                                         "#queue",                               # container
-                                         key,                                    # column
-                                         value,                                  # top_color
-                                         old_value,                              # bottom_color
-                                         false,                                  # warning
-                                         true                                    # scroll
             document.handle_missing missing_id,                   # missing id
                                     vector[missing_id] + 1,       # start
                                     high_ends[missing_id],        # end
@@ -259,9 +259,6 @@
           data_id = new_data_id
       unless false in nack_result or false in queue_result
         debug "Resuming normal operation", "CornflowerBlue"
-        return true
-      else
-        return false
 
     @stop = ->
       window.interval_id ?= -1
