@@ -71,7 +71,7 @@
           debug evt.data
           document.send_rack data
         else if data.rack?                                # consume multicast rack
-          debug evt.data
+          # debug evt.data
           document.consume_rack data
         else if data.id != id                             # consume multicast messages
           document.store_data data
@@ -230,7 +230,6 @@
       process_result = true
       loop
         debug "Consuming queue for \#{data_id}", "CornflowerBlue"
-        debug data_id
         while process_result
           delivery_queue = JSON.parse localStorage._delivery_queue
           queued = delivery_queue[data_id]
@@ -243,7 +242,6 @@
         delivery_queue = JSON.parse localStorage._delivery_queue
         queued = delivery_queue[data_id]
         queued ?= []
-        debug queued
         break unless queued.empty()
         nack_index = JSON.parse localStorage._nack_index
         break unless nack_index[data_id]?
