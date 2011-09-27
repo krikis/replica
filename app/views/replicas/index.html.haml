@@ -228,6 +228,7 @@
       # process queued values
       data_id = data.id
       loop
+        debug data_id
         process_result = true
         while process_result
           delivery_queue = JSON.parse localStorage._delivery_queue
@@ -237,9 +238,11 @@
           data_part = queued.shift()
           localStorage._delivery_queue = JSON.stringify delivery_queue
           process_result = @store_data data_part
+          $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
         delivery_queue = JSON.parse localStorage._delivery_queue
         queued = delivery_queue[data_id]
         queued ?= []
+        debug queued
         process_result = false
         break unless queued.empty()
         nack_index = JSON.parse localStorage._nack_index
@@ -248,6 +251,7 @@
         delete nack_index[data_id]
         localStorage._nack_index = JSON.stringify nack_index
         break if new_data_id == data_id
+        data_id = new_data_id
       delivery_queue = JSON.parse localStorage._delivery_queue
       queued = delivery_queue[data_id]
       queued ?= []
