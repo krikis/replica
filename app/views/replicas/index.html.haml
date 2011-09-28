@@ -25,6 +25,7 @@
       localStorage._vector ?= JSON.stringify {}
       localStorage._send_queue ?= JSON.stringify []
       localStorage._delivery_queue ?= JSON.stringify {}
+      localStorage._receive_queue ?= JSON.stringify []
       localStorage._high_ends ?= JSON.stringify {}
       localStorage._nack_index ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
@@ -162,7 +163,7 @@
       delivery_queue = JSON.parse localStorage._delivery_queue
       delivery_queue[data.id] ?= []
       delivery_queue[data.id].push data
-      delivery_queue[data.id].sort document.by_vector_count
+      delivery_queue[data.id].sort @by_vector_count
       localStorage._delivery_queue = JSON.stringify delivery_queue
       {key, value, old_value} = data
       document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
@@ -176,6 +177,19 @@
     # sort data by vector count for its id
     @by_vector_count = (first, last) ->
       first.vector[first.id] - last.vector[last.id]
+      
+    @by_vector = (first, last) ->
+      first_keys = (count for count of first.vector).sort()
+      last_keys = (count for count of first.vector).sort()
+      last.vector[key] ?= -1 for key in first_keys
+      first.vector[key] ?= -1 for key in last_keys
+      bigger = smaller = []
+      for key in first_keys
+        bigger.push key if first.vector[key] > last.vector[key]
+        smaller.push key if first.vector[key] < last.vector[key]
+      return -1 if bigger.length > 0 and smaller.empty()
+      return 1 if bigger.empty() and smaller.length > 0
+      return 0
 
     @handle_missing = (id, start, end, data_id) ->
       nack_index = JSON.parse localStorage._nack_index
@@ -271,6 +285,7 @@
       localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
       localStorage._delivery_queue = JSON.stringify {}
+      localStorage._receive_queue = JSON.stringify []
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
