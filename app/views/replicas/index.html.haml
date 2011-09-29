@@ -109,7 +109,7 @@
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
           return true # the data was skipped
-        
+
         # There are messages missing
         if (missing_id = @missing_id_for data)?
           debug "Missing messages!", "Crimson"
@@ -119,7 +119,7 @@
           # if (queued = delivery_queue[missing_id][0])? and
           #     queued.vector[missing_id] == vector[missing_id] + 1 # the missing element is on the queue
           reception_queue = JSON.parse localStorage._reception_queue
-          unless reception_queue.empty() or 
+          unless reception_queue.empty() or
                  (@missing_id_for reception_queue[0])?
             # the missing element is on the queue
             @consume_rack
@@ -154,9 +154,9 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
-    
+
     # Detect missing messages
-    @missing_id_for = (data) -> 
+    @missing_id_for = (data) ->
       vector = JSON.parse localStorage._vector
       high_ends = JSON.parse localStorage._high_ends
       missing_id = data.id if vector[data.id] + 1 < data.vector[data.id] and
@@ -169,7 +169,7 @@
       missing_id ?= missing_ids[0]
       localStorage._high_ends = JSON.stringify high_ends
       missing_id
-    
+
     @enqueue = (data) ->
       # delivery_queue = JSON.parse localStorage._delivery_queue
       # delivery_queue[data.id] ?= []
@@ -192,7 +192,7 @@
     # sort data by vector count for its id
     @by_vector_count = (first, last) ->
       first.vector[first.id] - last.vector[last.id]
-      
+
     # sort data by time vector
     @by_vector = (first, last) ->
       do (first, last) ->
@@ -264,7 +264,7 @@
       data_id = data.id
       process_result = true
       # loop
-      debug "Consuming queue", "CornflowerBlue"
+      # debug "Consuming queue", "CornflowerBlue"
       while process_result
         # delivery_queue = JSON.parse localStorage._delivery_queue
         # queued = delivery_queue[data_id]
