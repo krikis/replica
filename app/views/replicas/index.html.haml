@@ -24,7 +24,6 @@
       localStorage._index = JSON.stringify []
       localStorage._vector ?= JSON.stringify {}
       localStorage._send_queue ?= JSON.stringify []
-      # localStorage._delivery_queue ?= JSON.stringify {}
       localStorage._reception_queue ?= JSON.stringify []
       localStorage._high_ends ?= JSON.stringify {}
       localStorage._nack_index ?= JSON.stringify {}
@@ -114,10 +113,6 @@
         if (missing_id = @missing_id_for data)?
           debug "Missing messages!", "Crimson"
           @enqueue data
-          # delivery_queue = JSON.parse localStorage._delivery_queue
-          # delivery_queue[missing_id] ?= []
-          # if (queued = delivery_queue[missing_id][0])? and
-          #     queued.vector[missing_id] == vector[missing_id] + 1 # the missing element is on the queue
           reception_queue = JSON.parse localStorage._reception_queue
           unless reception_queue.empty() or
                  (@missing_id_for reception_queue[0])?
@@ -171,11 +166,6 @@
       missing_id
 
     @enqueue = (data) ->
-      # delivery_queue = JSON.parse localStorage._delivery_queue
-      # delivery_queue[data.id] ?= []
-      # delivery_queue[data.id].push data
-      # delivery_queue[data.id].sort @by_vector_count
-      # localStorage._delivery_queue = JSON.stringify delivery_queue
       reception_queue = JSON.parse localStorage._reception_queue
       reception_queue.push data
       reception_queue.sort @by_vector
@@ -263,36 +253,14 @@
       # process queued values
       data_id = data.id
       process_result = true
-      # loop
       # debug "Consuming queue", "CornflowerBlue"
       while process_result
-        # delivery_queue = JSON.parse localStorage._delivery_queue
-        # queued = delivery_queue[data_id]
-        # queued ?= []
         reception_queue = JSON.parse localStorage._reception_queue
         break if reception_queue.empty()
         data_part = reception_queue.shift()
         localStorage._reception_queue = JSON.stringify reception_queue
-        # break if queued.empty()
-        # data_part = queued.shift()
-        # localStorage._reception_queue = JSON.stringify delivery_queue
         process_result = @store_data data_part
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-      # delivery_queue = JSON.parse localStorage._delivery_queue
-      # queued = delivery_queue[data_id]
-      # queued ?= []
-      # break unless queued.empty()
-      # nack_index = JSON.parse localStorage._nack_index
-      # break unless nack_index[data_id]?
-      # new_data_id = nack_index[data_id].applicant
-      # delete nack_index[data_id]
-      # localStorage._nack_index = JSON.stringify nack_index
-      # break if new_data_id == data_id
-      # data_id = new_data_id
-      # delivery_queue = JSON.parse localStorage._delivery_queue
-      # queued = delivery_queue[data_id]
-      # queued ?= []
-      # if queued.empty() and process_result
       reception_queue = JSON.parse localStorage._reception_queue
       if reception_queue.empty() and process_result
         debug "Resuming normal operation", "CornflowerBlue"
@@ -311,7 +279,6 @@
         localStorage.removeItem key
       localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
-      # localStorage._delivery_queue = JSON.stringify {}
       localStorage._reception_queue = JSON.stringify []
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
@@ -460,9 +427,6 @@
       document.store_data(data)
 
     if Modernizr.localstorage and Modernizr.websockets
-      # TODO disable doubleclick
-      # TODO disable log scrolling on mouseover
-      # TODO show log scrollbar on mouseover
       for elem in $(".button")
         do (elem) ->
           elem.onselectstart = ->
