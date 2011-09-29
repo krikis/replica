@@ -103,7 +103,7 @@
         vector = JSON.parse localStorage._vector
         vector[id] ?= -1 for id of data.vector
         localStorage._vector = JSON.stringify vector
-        debug "\#{data.id} => \#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
+        # debug "\#{data.id} => \#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
@@ -220,7 +220,7 @@
           start: start
           end: end
           nack: true
-        debug "Acquiring missing messages for \#{id}", "CornflowerBlue"
+        debug "Acquiring missing messages [\#{start}..\#{end}] for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
