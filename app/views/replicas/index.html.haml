@@ -103,24 +103,15 @@
       unless localStorage._id == data.id
         vector = JSON.parse localStorage._vector
         vector[id] ?= -1 for id of data.vector
+        localStorage._vector = JSON.stringify vector
         debug "\#{data.id} => \#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
           debug "Old message", "Crimson"
           return true # the data was skipped
-        # Detect missing messages
-        high_ends = JSON.parse localStorage._high_ends
-        missing_id = data.id if vector[data.id] + 1 < data.vector[data.id] and
-                                (high_ends[data.id] >= data.vector[data.id] - 1 or
-                                 high_ends[data.id] = data.vector[data.id] - 1)
-        missing_ids = (id for id of data.vector when id != data.id and
-                                                     vector[id] < data.vector[id] and
-                                                     (high_ends[id] >= data.vector[id] or
-                                                      high_ends[id] = data.vector[id]))
-        missing_id ?= missing_ids[0]
-        localStorage._high_ends = JSON.stringify high_ends
+        
         # There are messages missing
-        if missing_id?
+        if (missing_id = @missing_id_for data)?
           debug "Missing messages!", "Crimson"
           @enqueue data
           # delivery_queue = JSON.parse localStorage._delivery_queue
@@ -129,12 +120,13 @@
           #     queued.vector[missing_id] == vector[missing_id] + 1 # the missing element is on the queue
           reception_queue = JSON.parse localStorage._reception_queue
           unless reception_queue.empty() or 
-                 reception_queue[0].vector[missing_id] != vector[missing_id] + 1
+                 (@missing_id_for reception_queue[0])?
             # the missing element is on the queue
             @consume_rack
               id: missing_id
               rack: []
           else # consider sending a nack
+            high_ends = JSON.parse localStorage._high_ends
             document.handle_missing missing_id,                   # missing id
                                     vector[missing_id] + 1,       # start
                                     high_ends[missing_id],        # end
@@ -162,7 +154,22 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
-
+    
+    # Detect missing messages
+    @missing_id_for = (data) -> 
+      vector = JSON.parse localStorage._vector
+      high_ends = JSON.parse localStorage._high_ends
+      missing_id = data.id if vector[data.id] + 1 < data.vector[data.id] and
+                              (high_ends[data.id] >= data.vector[data.id] - 1 or
+                               (high_ends[data.id] = data.vector[data.id] - 1)?)
+      missing_ids = (id for id of data.vector when id != data.id and
+                                                   vector[id] < data.vector[id] and
+                                                   (high_ends[id] >= data.vector[id] or
+                                                    (high_ends[id] = data.vector[id])?))
+      missing_id ?= missing_ids[0]
+      localStorage._high_ends = JSON.stringify high_ends
+      missing_id
+    
     @enqueue = (data) ->
       # delivery_queue = JSON.parse localStorage._delivery_queue
       # delivery_queue[data.id] ?= []
