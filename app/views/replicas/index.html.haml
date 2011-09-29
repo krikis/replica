@@ -106,7 +106,7 @@
         # debug "\#{data.id} => \#{JSON.stringify data.vector} || \#{JSON.stringify vector}"
         # The message was already delivered
         if vector[data.id] >= data.vector[data.id]
-          debug "Old message", "Crimson"
+          debug "Old message: \#{JSON.stringify data.vector}", "Crimson"
           return true # the data was skipped
 
         # There are messages missing
