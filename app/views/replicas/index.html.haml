@@ -198,8 +198,8 @@
       for key in first_keys
         bigger.push key if first.vector[key] > last.vector[key]
         smaller.push key if first.vector[key] < last.vector[key]
-      return -1 if bigger.length > 0 and smaller.empty()
-      return 1 if bigger.empty() and smaller.length > 0
+      return 1 if bigger.length > 0 and smaller.empty()
+      return -1 if bigger.empty() and smaller.length > 0
       return 0
 
     @handle_missing = (id, start, end, data_id) ->
@@ -257,7 +257,7 @@
       data_id = data.id
       process_result = true
       # loop
-      debug "Consuming queue for \#{data_id}", "CornflowerBlue"
+      debug "Consuming queue", "CornflowerBlue"
       while process_result
         # delivery_queue = JSON.parse localStorage._delivery_queue
         # queued = delivery_queue[data_id]
