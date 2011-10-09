@@ -27,6 +27,7 @@
       localStorage._reception_queue ?= JSON.stringify []
       localStorage._high_ends ?= JSON.stringify {}
       localStorage._nack_index ?= JSON.stringify {}
+      localStorage._sender_index ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
 
@@ -135,20 +136,40 @@
         vector[data.id] = data.vector[data.id]
         localStorage._vector = JSON.stringify vector
 
-      # Actually store the data
-      localStorage[key] = value
-      # Visualize the data stored
-      document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                                   "#data",                                # container
-                                   key,                                    # column
-                                   value,                                  # top_color
-                                   old_value,                              # bottom_color
-                                   old_value != local_old_value            # warning
-      # color = "Gainsboro"
-      # if local_old_value != old_value
-      #   color = "Crimson"
-      # debug "\#{key}: \#{old_value} -> \#{value}", color
-      return true # the data was consumed
+      # Store the sender for conflict resolution
+      sender_index = JSON.parse localStorage._sender_index
+      sender_index[key] = data.id
+      localStorage._sender_index JSON.stringify sender_index
+      # conflict handling:
+      # send conflict message to sender with minor id
+      # sender broadcasts the fixed message
+      if old_value != local_old_value
+        sender = if data.id > sender_index[key]
+          data.id
+        else
+          sender_index[key]
+        conflict =
+          id: localStorage._id
+          dest: sender
+          vector: data.vector
+          old_vector: "" #old message vector
+          conflict: true
+        return false
+      else
+        # Actually store the data
+        localStorage[key] = value
+        # Visualize the data stored
+        document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                                     "#data",                                # container
+                                     key,                                    # column
+                                     value,                                  # top_color
+                                     old_value,                              # bottom_color
+                                     old_value != local_old_value            # warning
+        # color = "Gainsboro"
+        # if local_old_value != old_value
+        #   color = "Crimson"
+        # debug "\#{key}: \#{old_value} -> \#{value}", color
+        return true # the data was consumed
 
     # Detect missing messages
     @missing_id_for = (data) ->
@@ -285,6 +306,7 @@
       localStorage._reception_queue = JSON.stringify []
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
+      localStorage._sender_index = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
