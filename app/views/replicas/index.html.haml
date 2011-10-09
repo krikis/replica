@@ -504,12 +504,12 @@
         if document.acquire_semaphore()
           if $(this).html() == "Show Log"
             $(this).html("Hide Log")
-            $("#data").css("height", "21em")
+            $("#data").css("height", "20.5em")
             $("#debug").show()
           else
             $(this).html("Show Log")
             $("#debug").hide()
-            $("#data").css("height", "38.65em")
+            $("#data").css("height", "38.15em")
 
       $("#arresto").click ->
         if document.acquire_semaphore()
