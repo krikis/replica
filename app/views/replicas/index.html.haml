@@ -66,7 +66,7 @@
         else if data.clear?                               # clear all data in the local stora and reset system variables
           document.clear_data()
         else if data.arresto_momentum?
-          document.stop()
+          document.interrupt()
         else if data.nack?                                # handle multicast nack
           debug evt.data
           document.send_rack data
@@ -265,14 +265,17 @@
       if reception_queue.empty() and process_result
         debug "Resuming normal operation", "CornflowerBlue"
 
-    @stop = ->
+    @interrupt = ->
       window.interval_id ?= -1
       window.clearInterval window.interval_id
       delete window.interval_id
       $("#startbutton").html("Start")
-                         .removeClass("stop")
-                         .addClass("start")
+                       .removeClass("stop")
+                       .addClass("start")
+      $("#speedbutton").html("Faster")
+                       .hide()
       $(".clear").removeClass("disabled")
+                 .show()
 
     @clear_data = ->
       for key of localStorage when key[0] != '_'
