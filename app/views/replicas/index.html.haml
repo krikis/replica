@@ -298,8 +298,6 @@
 #offbutton.button.offline Offline
 #logbutton.button.log Hide Log
 #arresto.button.arresto Arresto Momentum
--# TODO: add speed dial
--# TODO: add HTML5 logo
 
 %div.container
   #queue
@@ -386,7 +384,12 @@
     #key_20.color_column
       %div.color_stub
 #debug
-#id= "#{session[:key]}"
+#footer
+  #logo
+    %a{:href => "http://www.w3.org/html/logo/"}<
+      %img{:alt => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", :height => "64", :src => "http://www.w3.org/html/logo/badge/html5-badge-h-connectivity-storage.png", :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", :width => "165"}
+  #id= "#{session[:key]}"
+  #spacer
 
 :coffeescript
   $ ->
@@ -501,12 +504,12 @@
         if document.acquire_semaphore()
           if $(this).html() == "Show Log"
             $(this).html("Hide Log")
-            $("#data").css("height", "24em")
+            $("#data").css("height", "21em")
             $("#debug").show()
           else
             $(this).html("Show Log")
             $("#debug").hide()
-            $("#data").css("height", "41.65em")
+            $("#data").css("height", "38.65em")
 
       $("#arresto").click ->
         if document.acquire_semaphore()
