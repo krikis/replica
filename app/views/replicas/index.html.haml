@@ -290,6 +290,7 @@
       document.initSocket()                              # initialize a web socket
 
 #startbutton.button.start Start
+#speedbutton.button.speed Faster
 #clearbutton.button.clear Clear
 #offbutton.button.offline Offline
 #logbutton.button.log Hide Log
@@ -426,30 +427,56 @@
       # send and store the data
       window.web_socket.send JSON.stringify data
       document.store_data(data)
+    
+    @start = (interval) ->  
+      window.web_socket.send JSON.stringify
+        id: id
+        disable_clear: true
+      window.interval_id = window.setInterval document.send_data, interval
+      
+    @stop = -> 
+      window.clearInterval window.interval_id
+      delete window.interval_id
 
     if Modernizr.localstorage and Modernizr.websockets
       for elem in $(".button")
         do (elem) ->
           elem.onselectstart = ->
             false
+            
       $("#startbutton").click ->
         if document.acquire_semaphore()
           unless window.interval_id?
-            window.web_socket.send JSON.stringify
-              id: id
-              disable_clear: true
-            window.interval_id = window.setInterval document.send_data, 1000
+            document.start 1000
             $(this).html("Stop")
                    .removeClass("start")
                    .addClass("stop")
             $(".clear").addClass("disabled")
+                       .hide()
+            $(".speed").show()
           else
-            window.clearInterval window.interval_id
-            delete window.interval_id
+            document.stop()
             $(this).html("Start")
                    .removeClass("stop")
                    .addClass("start")
+            $(".speed").hide()
             $(".clear").removeClass("disabled")
+                       .show()
+
+      $("#speedbutton").click ->
+        if document.acquire_semaphore()
+          if $(this).html() == "Faster"
+            document.stop()
+            document.start(500)
+            $(this).html("Aieee!!")
+          else if $(this).html() == "Aieee!!"
+            document.stop()
+            document.start(50)
+            $(this).html("Slower")
+          else
+            document.stop()
+            document.start(1000)
+            $(this).html("Faster")          
 
       $("#clearbutton").click ->
         if document.acquire_semaphore()
