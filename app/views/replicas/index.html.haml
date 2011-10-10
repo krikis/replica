@@ -152,10 +152,10 @@
         # get the sender index
         sender_index = JSON.parse localStorage._sender_index
         previous = sender_index[key]
-        # determine the winner of concurrent messages based on their unique id
+        # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
         [loser, loser_vector, winner_vector] = if data.id > previous.id
           [data.id, data.vector, previous.vector]
-        else          
+        else
           $("\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
           $("\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
           document.save_data data
@@ -169,16 +169,16 @@
           conflict: true
         debug "Sending conflict message to \#{loser} about \#{key}", "Crimson"
         window.web_socket.send JSON.stringify conflict
-        return false
       else
-        document.store_data data
-        # color = "Gainsboro"
-        # if local_old_value != old_value
-        #   color = "Crimson"
-        # debug "\#{key}: \#{old_value} -> \#{value}", color
-        return true # the data was consumed
-        
-    @save_data = (data) -> 
+        document.save_data data
+
+      # color = "Gainsboro"
+      # if local_old_value != old_value
+      #   color = "Crimson"
+      # debug "\#{key}: \#{old_value} -> \#{value}", color
+      return true # the data was consumed
+
+    @save_data = (data) ->
       # Actually store the data
       localStorage[key] = data.value
       # Store the sender for conflict resolution
