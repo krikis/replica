@@ -28,6 +28,7 @@
       localStorage._high_ends ?= JSON.stringify {}
       localStorage._nack_index ?= JSON.stringify {}
       localStorage._sender_index ?= JSON.stringify {}
+      localStorage._conflict_index ?= JSON.stringify {}
       web_socket = new Socket("ws://localhost:8080/")
       window.web_socket = web_socket
 
@@ -75,7 +76,7 @@
           # debug evt.data
           document.consume_retry data
         else if data.conflict?
-          debug evt.data
+          document.resolve_conflict data
         else if data.id != id                             # consume multicast messages
           document.store_data data
         # debug localStorage._index, "Gainsboro"
@@ -156,7 +157,7 @@
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
-      
+
     @handle_conflict = (data) ->
       # get the sender index
       sender_index = JSON.parse localStorage._sender_index
@@ -177,7 +178,7 @@
         dest: loser
         vector: loser_vector
         old_vector: winner_vector
-        object_id: data.key
+        object: data.key
         conflict: true
       debug "Sending conflict message to \#{loser} about \#{data.key}", "Crimson"
       window.web_socket.send JSON.stringify conflict
@@ -189,6 +190,19 @@
       sender_index = JSON.parse localStorage._sender_index
       sender_index[data.key] = data
       localStorage._sender_index = JSON.stringify sender_index
+
+    @resolve_conflict = (data) ->  
+      conflict_index = JSON.parse localStorage._conflict_index
+      # is the conflict being handled already?
+      unless (conflicts = conflict_index[data.object])? and data.vector[localStorage._id] in conflicts
+        # mark the conflict as being handled
+        conflict_index[data.object] ?= []
+        conflict_index[data.object].push data.vector[localStorage._id]
+        localStorage._conflict_index = JSON.stringify conflict_index
+        # resolve the conflict        
+        send_queue = JSON.parse localStorage._send_queue
+        conflicting_message = send_queue[data.vector[localStorage._id]]
+        debug JSON.stringify conflicting_message
 
     # Detect missing messages
     @missing_id_for = (data) ->
@@ -326,6 +340,7 @@
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
       localStorage._sender_index = JSON.stringify {}
+      localStorage._conflict_index = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
@@ -442,10 +457,7 @@
         window.semaphore = false
       , 200
 
-    # fetch data from localstorage
-    id = localStorage._id
-    index = JSON.parse localStorage._index
-    @send_data = ->
+    @send_data = (key, value) ->
       # increment vector timestamp for this process
       vector = JSON.parse localStorage._vector
       unless vector[localStorage._id]?
@@ -453,11 +465,7 @@
       else
         count = ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
-      # generate data for localstorage
-      number = (Math.floor(Math.random() * 20) + 1).toString()
-      number = "0" + number until number.length == 2
-      key = "key_" + number
-      value = window.random_color()
+      
       old_value = localStorage[key]
       old_value ?= "#ffffff"
       data =
@@ -475,11 +483,19 @@
       window.web_socket.send JSON.stringify data
       document.store_data(data)
 
+    @random_message = ->  
+      # generate data for localstorage
+      number = (Math.floor(Math.random() * 20) + 1).toString()
+      number = "0" + number until number.length == 2
+      key = "key_" + number
+      value = @random_color()
+      @send_data(key, value)
+
     @start = (interval) ->
       window.web_socket.send JSON.stringify
-        id: id
+        id: localStorage._id
         disable_clear: true
-      window.interval_id = window.setInterval document.send_data, interval
+      window.interval_id = window.setInterval document.random_message, interval
 
     @stop = ->
       window.clearInterval window.interval_id
@@ -529,7 +545,7 @@
         if document.acquire_semaphore()
           unless $(this).hasClass("disabled")
             window.web_socket.send JSON.stringify
-              id: id
+              id: localStorage._id
               clear: true
 
       $("#offbutton").click ->
@@ -555,7 +571,7 @@
       $("#arresto").click ->
         if document.acquire_semaphore()
           window.web_socket.send JSON.stringify
-            id: id
+            id: localStorage._id
             arresto_momentum: true
 
       $("#data").hover ->

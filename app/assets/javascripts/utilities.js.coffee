@@ -28,7 +28,7 @@ $ ->
       Math.min.apply Math, @ unless @empty()
 
   # generate random color
-  window.random_color = ->
+  document.random_color = ->
     hex = Math.abs(Math.random() * 0xFFFFFF << 0).toString 16
     hex = '0' + hex until hex.length == 6
     '#' + hex
