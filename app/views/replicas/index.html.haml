@@ -13,7 +13,7 @@
     # set initial reconnection timeout to 2 seconds
     window.prev_reconnect_on = 1
     window.reconnect_on = 2
-    @initSocket = ->
+    @init_socket = ->
       # TODO: preinitialize #data with localStorage data
       # TODO: preinitialize #queue with localStorage queue
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
@@ -88,7 +88,7 @@
         unless window.offline?
           debug "reconnecting in \#{window.reconnect_on} seconds...", "Gainsboro"
           setTimeout (->
-            document.initSocket()
+            document.init_socket()
           ), window.reconnect_on * 1000
           # increase the timeout fibonacciwise in order to decrease the network load
           tmp = window.reconnect_on
@@ -138,22 +138,26 @@
 
       # Store the sender for conflict resolution
       sender_index = JSON.parse localStorage._sender_index
-      sender_index[key] = data.id
+      sender_index[key] = {id: data.id, vector: data.vector}
       localStorage._sender_index JSON.stringify sender_index
       # conflict handling:
       # send conflict message to sender with minor id
       # sender broadcasts the fixed message
       if old_value != local_old_value
-        sender = if data.id > sender_index[key]
-          data.id
+        # determine the winner of concurrent messages based on their unique id
+        [loser, loser_vector, winner_vector] = if data.id > sender_index[key]
+          [data.id, data.vector, sender_index[key].vector]
         else
-          sender_index[key]
+          [sender_index[key].id, sender_index[key].vector, data.vector]
         conflict =
           id: localStorage._id
-          dest: sender
-          vector: data.vector
-          old_vector: "" #old message vector
+          dest: loser
+          vector: loser_vector
+          old_vector: winner_vector
+          object_id: key
           conflict: true
+        debug "Sending conflict message to \#{loser} about \#{key}", "Crimson"
+        window.web_socket.send JSON.stringify nack
         return false
       else
         # Actually store the data
@@ -312,7 +316,7 @@
       $("#debug").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
-      document.initSocket()                              # initialize a web socket
+      document.init_socket()                              # initialize a web socket
 
 #startbutton.button.start Start
 #speedbutton.button.speed Faster
@@ -520,7 +524,7 @@
             window.web_socket.close()
           else
             delete window.offline
-            document.initSocket()
+            document.init_socket()
 
       $("#logbutton").click ->
         if document.acquire_semaphore()
