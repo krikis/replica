@@ -153,11 +153,13 @@
         sender_index = JSON.parse localStorage._sender_index
         previous = sender_index[key]
         # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
-        [loser, loser_vector, winner_vector] = if data.id > previous.id
+        [loser, loser_vector, winner_vector] = if data.id > previous.id # new message is loser
           [data.id, data.vector, previous.vector]
-        else
-          $("\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
-          $("\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
+        else # old message was loser
+          # swap conflict indicators
+          $("#\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
+          $("#\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
+          # save the data
           document.save_data data
           [previous.id, previous.vector, data.vector]
         conflict =
@@ -436,7 +438,7 @@
       window.semaphore = true
       setTimeout ->
         window.semaphore = false
-      , 500
+      , 200
 
     # fetch data from localstorage
     id = localStorage._id
