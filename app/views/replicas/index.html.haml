@@ -78,7 +78,7 @@
         else if data.conflict?
           document.resolve_conflict data
         else if data.id != id                             # consume multicast messages
-          document.store_data data
+          document.handle_data data
         # debug localStorage._index, "Gainsboro"
 
       web_socket.onclose = ->
@@ -98,7 +98,7 @@
           window.reconnect_on = window.reconnect_on + window.prev_reconnect_on
           window.prev_reconnect_on = tmp
 
-    @store_data = (data) ->
+    @handle_data = (data) ->
       # set local variables
       {key, value, old_value} = data
       local_old_value = localStorage[key]
@@ -158,6 +158,14 @@
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
 
+    @save_data = (data) ->
+      # Actually store the data
+      localStorage[data.key] = data.value
+      # Store the sender for conflict resolution
+      sender_index = JSON.parse localStorage._sender_index
+      sender_index[data.key] = data
+      localStorage._sender_index = JSON.stringify sender_index
+
     @handle_conflict = (data) ->
       # get the sender index
       sender_index = JSON.parse localStorage._sender_index
@@ -182,14 +190,6 @@
         conflict: true
       debug "Sending conflict message to \#{loser} about \#{data.key}", "Crimson"
       window.web_socket.send JSON.stringify conflict
-
-    @save_data = (data) ->
-      # Actually store the data
-      localStorage[data.key] = data.value
-      # Store the sender for conflict resolution
-      sender_index = JSON.parse localStorage._sender_index
-      sender_index[data.key] = data
-      localStorage._sender_index = JSON.stringify sender_index
 
     @resolve_conflict = (data) ->  
       conflict_index = JSON.parse localStorage._conflict_index
@@ -313,7 +313,7 @@
         break if reception_queue.empty()
         data_part = reception_queue.shift()
         localStorage._reception_queue = JSON.stringify reception_queue
-        process_result = @store_data data_part
+        process_result = @handle_data data_part
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
       reception_queue = JSON.parse localStorage._reception_queue
       if reception_queue.empty() and process_result
@@ -481,7 +481,7 @@
       localStorage._send_queue = JSON.stringify send_queue
       # send and store the data
       window.web_socket.send JSON.stringify data
-      document.store_data(data)
+      document.handle_data(data)
 
     @random_message = ->  
       # generate data for localstorage
