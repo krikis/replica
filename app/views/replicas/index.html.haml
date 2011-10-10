@@ -29,7 +29,7 @@
       localStorage._nack_index ?= JSON.stringify {}
       localStorage._sender_index ?= JSON.stringify {}
       localStorage._conflict_index ?= JSON.stringify {}
-      web_socket = new Socket("ws://localhost:8080/")
+      web_socket = new Socket("ws://y.odel.it:8080/")
       window.web_socket = web_socket
 
       web_socket.onopen = ->
@@ -351,6 +351,7 @@
 
     if Modernizr.localstorage and Modernizr.websockets
       @init_socket()                              # initialize a web socket
+      debug "It's HTML5 son. It's on."
 
 #startbutton.button.start Start
 #speedbutton.button.speed Faster

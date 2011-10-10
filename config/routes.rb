@@ -1,7 +1,9 @@
 Replicate::Application.routes.draw do
-  
+
+  match "/" => "replicas#index"
+
   resources :replicas
-  
+
   # The priority is based upon order of creation:
   # first created -> highest priority.
 
