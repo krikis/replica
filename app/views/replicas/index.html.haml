@@ -74,6 +74,8 @@
         else if data.retry?                                # consume multicast retry
           # debug evt.data
           document.consume_retry data
+        else if data.conflict?
+          debug evt.data
         else if data.id != id                             # consume multicast messages
           document.store_data data
         # debug localStorage._index, "Gainsboro"
@@ -136,16 +138,21 @@
         vector[data.id] = data.vector[data.id]
         localStorage._vector = JSON.stringify vector
 
-      # Store the sender for conflict resolution
-      sender_index = JSON.parse localStorage._sender_index
-      sender_index[key] = {id: data.id, vector: data.vector}
-      localStorage._sender_index JSON.stringify sender_index
+      # Visualize the data (to be) stored
+      document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                                   "#data",                                # container
+                                   key,                                    # column
+                                   value,                                  # top_color
+                                   old_value,                              # bottom_color
+                                   old_value != local_old_value            # warning
       # conflict handling:
       # send conflict message to sender with minor id
       # sender broadcasts the fixed message
       if old_value != local_old_value
+        # get the sender index
+        sender_index = JSON.parse localStorage._sender_index
         # determine the winner of concurrent messages based on their unique id
-        [loser, loser_vector, winner_vector] = if data.id > sender_index[key]
+        [loser, loser_vector, winner_vector] = if data.id > sender_index[key].id
           [data.id, data.vector, sender_index[key].vector]
         else
           [sender_index[key].id, sender_index[key].vector, data.vector]
@@ -157,18 +164,15 @@
           object_id: key
           conflict: true
         debug "Sending conflict message to \#{loser} about \#{key}", "Crimson"
-        window.web_socket.send JSON.stringify nack
+        window.web_socket.send JSON.stringify conflict
         return false
       else
         # Actually store the data
         localStorage[key] = value
-        # Visualize the data stored
-        document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                                     "#data",                                # container
-                                     key,                                    # column
-                                     value,                                  # top_color
-                                     old_value,                              # bottom_color
-                                     old_value != local_old_value            # warning
+        # Store the sender for conflict resolution
+        sender_index = JSON.parse localStorage._sender_index
+        sender_index[key] = {id: data.id, vector: data.vector}
+        localStorage._sender_index = JSON.stringify sender_index
         # color = "Gainsboro"
         # if local_old_value != old_value
         #   color = "Crimson"
@@ -459,14 +463,14 @@
       # send and store the data
       window.web_socket.send JSON.stringify data
       document.store_data(data)
-    
-    @start = (interval) ->  
+
+    @start = (interval) ->
       window.web_socket.send JSON.stringify
         id: id
         disable_clear: true
       window.interval_id = window.setInterval document.send_data, interval
-      
-    @stop = -> 
+
+    @stop = ->
       window.clearInterval window.interval_id
       delete window.interval_id
 
@@ -475,7 +479,7 @@
         do (elem) ->
           elem.onselectstart = ->
             false
-            
+
       $("#startbutton").click ->
         if document.acquire_semaphore()
           unless window.interval_id?
@@ -508,7 +512,7 @@
           else
             document.stop()
             document.start(1000)
-            $(this).html("Faster")          
+            $(this).html("Faster")
 
       $("#clearbutton").click ->
         if document.acquire_semaphore()
