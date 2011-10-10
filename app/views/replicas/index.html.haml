@@ -125,10 +125,10 @@
               retry: []
           else # consider sending a nack
             high_ends = JSON.parse localStorage._high_ends
-            document.handle_missing missing_id,                   # missing id
-                                    vector[missing_id] + 1,       # start
-                                    high_ends[missing_id],        # end
-                                    data.id                       # data id
+            @handle_missing missing_id,                   # missing id
+                            vector[missing_id] + 1,       # start
+                            high_ends[missing_id],        # end
+                            data.id                       # data id
           return false # the data was qeued
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -139,46 +139,48 @@
         localStorage._vector = JSON.stringify vector
 
       # Visualize the data (to be) stored
-      document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
                                    "#data",                                # container
                                    key,                                    # column
                                    value,                                  # top_color
                                    old_value,                              # bottom_color
                                    old_value != local_old_value            # warning
-      # conflict handling:
-      # send conflict message to sender with minor id
-      # sender broadcasts the fixed message
+      # Conflict handling
       if old_value != local_old_value
-        # get the sender index
-        sender_index = JSON.parse localStorage._sender_index
-        previous = sender_index[key]
-        # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
-        [loser, loser_vector, winner_vector] = if data.id > previous.id # new message is loser
-          [data.id, data.vector, previous.vector]
-        else # old message was loser
-          # swap conflict indicators
-          $("#\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
-          $("#\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
-          # save the data
-          document.save_data data
-          [previous.id, previous.vector, data.vector]
-        conflict =
-          id: localStorage._id
-          dest: loser
-          vector: loser_vector
-          old_vector: winner_vector
-          object_id: key
-          conflict: true
-        debug "Sending conflict message to \#{loser} about \#{key}", "Crimson"
-        window.web_socket.send JSON.stringify conflict
+        @handle_conflict data
       else
-        document.save_data data
+        @save_data data
 
       # color = "Gainsboro"
       # if local_old_value != old_value
       #   color = "Crimson"
       # debug "\#{key}: \#{old_value} -> \#{value}", color
       return true # the data was consumed
+      
+    @handle_conflict = (data) ->
+      # get the sender index
+      sender_index = JSON.parse localStorage._sender_index
+      previous = sender_index[data.key]
+      # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
+      [loser, loser_vector, winner_vector] = if data.id > previous.id   # new message is loser
+        [data.id, data.vector, previous.vector]
+      else                                                              # old message is loser
+        # swap conflict indicators
+        $("#\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
+        $("#\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
+        # save the data
+        @save_data data
+        [previous.id, previous.vector, data.vector]
+      # send conflict message to loser
+      conflict =
+        id: localStorage._id
+        dest: loser
+        vector: loser_vector
+        old_vector: winner_vector
+        object_id: data.key
+        conflict: true
+      debug "Sending conflict message to \#{loser} about \#{data.key}", "Crimson"
+      window.web_socket.send JSON.stringify conflict
 
     @save_data = (data) ->
       # Actually store the data
@@ -209,13 +211,13 @@
       reception_queue.sort @by_vector
       localStorage._reception_queue = JSON.stringify reception_queue
       {key, value, old_value} = data
-      document.visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                                   "#queue",                               # container
-                                   key,                                    # column
-                                   value,                                  # top_color
-                                   old_value,                              # bottom_color
-                                   false,                                  # warning
-                                   true                                    # scroll
+      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                           "#queue",                               # container
+                           key,                                    # column
+                           value,                                  # top_color
+                           old_value,                              # bottom_color
+                           false,                                  # warning
+                           true                                    # scroll
 
     # sort data by vector count for its id
     @by_vector_count = (first, last) ->
