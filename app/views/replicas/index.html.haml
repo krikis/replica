@@ -151,11 +151,15 @@
       if old_value != local_old_value
         # get the sender index
         sender_index = JSON.parse localStorage._sender_index
+        previous = sender_index[key]
         # determine the winner of concurrent messages based on their unique id
-        [loser, loser_vector, winner_vector] = if data.id > sender_index[key].id
-          [data.id, data.vector, sender_index[key].vector]
-        else
-          [sender_index[key].id, sender_index[key].vector, data.vector]
+        [loser, loser_vector, winner_vector] = if data.id > previous.id
+          [data.id, data.vector, previous.vector]
+        else          
+          $("\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
+          $("\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
+          document.save_data data
+          [previous.id, previous.vector, data.vector]
         conflict =
           id: localStorage._id
           dest: loser
@@ -167,17 +171,20 @@
         window.web_socket.send JSON.stringify conflict
         return false
       else
-        # Actually store the data
-        localStorage[key] = value
-        # Store the sender for conflict resolution
-        sender_index = JSON.parse localStorage._sender_index
-        sender_index[key] = {id: data.id, vector: data.vector}
-        localStorage._sender_index = JSON.stringify sender_index
+        document.store_data data
         # color = "Gainsboro"
         # if local_old_value != old_value
         #   color = "Crimson"
         # debug "\#{key}: \#{old_value} -> \#{value}", color
         return true # the data was consumed
+        
+    @save_data = (data) -> 
+      # Actually store the data
+      localStorage[key] = data.value
+      # Store the sender for conflict resolution
+      sender_index = JSON.parse localStorage._sender_index
+      sender_index[key] = data
+      localStorage._sender_index = JSON.stringify sender_index
 
     # Detect missing messages
     @missing_id_for = (data) ->
