@@ -70,10 +70,10 @@
           document.interrupt()
         else if data.nack?                                # handle multicast nack
           debug evt.data
-          document.send_rack data
-        else if data.rack?                                # consume multicast rack
+          document.send_retry data
+        else if data.retry?                                # consume multicast retry
           # debug evt.data
-          document.consume_rack data
+          document.consume_retry data
         else if data.id != id                             # consume multicast messages
           document.store_data data
         # debug localStorage._index, "Gainsboro"
@@ -118,9 +118,9 @@
           unless reception_queue.empty() or
                  (@missing_id_for reception_queue[0])?
             # the missing element is on the queue
-            @consume_rack
+            @consume_retry
               id: missing_id
-              rack: []
+              retry: []
           else # consider sending a nack
             high_ends = JSON.parse localStorage._high_ends
             document.handle_missing missing_id,                   # missing id
@@ -259,18 +259,18 @@
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
 
-    @send_rack = (data) ->
+    @send_retry = (data) ->
       send_queue = JSON.parse localStorage._send_queue
       {start, end} = data
       $("#data #\#{localStorage._id}_\#{number}").css("border", "1px solid green") for number in [start..end]
       window.web_socket.send JSON.stringify
         id: localStorage._id
         dest: data.id
-        rack: send_queue[start..end]
+        retry: send_queue[start..end]
 
-    @consume_rack = (data) ->
-      # put rack on the queue
-      for data_part in data.rack
+    @consume_retry = (data) ->
+      # put retry on the queue
+      for data_part in data.retry
         @enqueue data_part
       nack_index = JSON.parse localStorage._nack_index
       delete nack_index[data_id]
