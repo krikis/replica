@@ -141,11 +141,13 @@
 
       # Visualize the data (to be) stored
       @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                                   "#data",                                # container
-                                   key,                                    # column
-                                   value,                                  # top_color
-                                   old_value,                              # bottom_color
-                                   old_value != local_old_value            # warning
+                           "#data",                                # container
+                           key,                                    # column
+                           value,                                  # top_color
+                           old_value,                              # bottom_color
+                           old_value != local_old_value,           # warning
+                           false,                                  # scroll
+                           data.resolution                         # conflict resolution
       # Conflict handling
       if old_value != local_old_value
         @handle_conflict data
@@ -180,7 +182,6 @@
         # save the data
         @save_data data
         [previous.id, previous.vector, data.vector]
-      # send conflict message to loser
       conflict =
         id: localStorage._id
         dest: loser
@@ -188,8 +189,12 @@
         old_vector: winner_vector
         object: data.key
         conflict: true
-      debug "Sending conflict message to \#{loser} about \#{data.key}", "Crimson"
-      window.web_socket.send JSON.stringify conflict
+      unless loser == localStorage._id                # someone else has to resolve this
+        # send conflict message to loser
+        debug "Conflict! Sending message to \#{loser} for \#{data.key} (\#{loser_vector[loser]})", "Crimson"
+        window.web_socket.send JSON.stringify conflict
+      else                                            # I can resolve this myself
+        @resolve_conflict conflict
 
     @resolve_conflict = (data) ->  
       conflict_index = JSON.parse localStorage._conflict_index
@@ -202,7 +207,9 @@
         # resolve the conflict        
         send_queue = JSON.parse localStorage._send_queue
         conflicting_message = send_queue[data.vector[localStorage._id]]
-        debug JSON.stringify conflicting_message
+        # resend conflicting update as a patch to the current storage state
+        debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
+        @send_data(conflicting_message.key, conflicting_message.value, true)
 
     # Detect missing messages
     @missing_id_for = (data) ->
@@ -232,10 +239,6 @@
                            old_value,                              # bottom_color
                            false,                                  # warning
                            true                                    # scroll
-
-    # sort data by vector count for its id
-    @by_vector_count = (first, last) ->
-      first.vector[first.id] - last.vector[last.id]
 
     # sort data by time vector
     @by_vector = (first, last) ->
@@ -277,14 +280,15 @@
         debug "Acquiring missing messages [\#{start}..\#{end}] for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
 
-    @visualize_data_flow = (id, container, column, top_color, bottom_color, warning = false, scroll = false) ->
+    @visualize_data_flow = (id, container, column, top_color, bottom_color, warning=false, scroll=false, resolution=false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
       color_box = $("<div id='\#{id}' class='color_box' title='\#{id}'>")
       unless scroll
         color_box.prependTo("\#{container} > #\#{column}")
       else
         color_box.insertAfter("\#{container} > #\#{column} > .color_stub")
-      color_box.css("border", "1px solid red") if warning
+      color_box.css("border", "1px solid Crimson") if warning  
+      color_box.css("border", "1px solid CornFlowerBlue") if resolution and not warning
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
 
@@ -346,7 +350,7 @@
       $("#debug").html("")
 
     if Modernizr.localstorage and Modernizr.websockets
-      document.init_socket()                              # initialize a web socket
+      @init_socket()                              # initialize a web socket
 
 #startbutton.button.start Start
 #speedbutton.button.speed Faster
@@ -457,7 +461,7 @@
         window.semaphore = false
       , 200
 
-    @send_data = (key, value) ->
+    @send_data = (key, value, conflict_resolution=false) ->
       # increment vector timestamp for this process
       vector = JSON.parse localStorage._vector
       unless vector[localStorage._id]?
@@ -475,6 +479,7 @@
         old_value: old_value
         crc: crc32("\#{key}|\#{value}")
         vector: vector
+        resolution: conflict_resolution
       # push the message in the sent queue for later reference
       send_queue = JSON.parse localStorage._send_queue
       send_queue[count] = data
@@ -482,6 +487,7 @@
       # send and store the data
       window.web_socket.send JSON.stringify data
       document.handle_data(data)
+      # debug JSON.stringify(data), "YellowGreen" if conflict_resolution
 
     @random_message = ->  
       # generate data for localstorage
@@ -489,7 +495,7 @@
       number = "0" + number until number.length == 2
       key = "key_" + number
       value = @random_color()
-      @send_data(key, value)
+      document.send_data(key, value)
 
     @start = (interval) ->
       window.web_socket.send JSON.stringify
