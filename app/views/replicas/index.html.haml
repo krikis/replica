@@ -130,6 +130,7 @@
           reception_queue = JSON.parse localStorage._reception_queue
           unless reception_queue.empty() or
                  (@missing_id_for reception_queue[0])?
+            debug "Consuming it from the queue...", "CornFlowerBlue"
             # the missing element is on the queue
             @consume_retry
               id: missing_id
