@@ -18,7 +18,7 @@
       # TODO: preinitialize #queue with localStorage queue
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
       # set time window for sending nacks
-      window.nack_window = 10000
+      window.nack_window = 20000
       # initialize local storage system variables
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
@@ -124,7 +124,8 @@
 
         # There are messages missing
         if (missing_id = @missing_id_for data)?
-          debug "Missing messages!", "Crimson"
+          high_ends = JSON.parse localStorage._high_ends
+          debug "Missing messages [\#{vector[missing_id] + 1}..\#{high_ends[missing_id]}] from \#{missing_id}!", "Crimson"
           @enqueue data
           reception_queue = JSON.parse localStorage._reception_queue
           unless reception_queue.empty() or
@@ -134,7 +135,6 @@
               id: missing_id
               retry: []
           else # consider sending a nack
-            high_ends = JSON.parse localStorage._high_ends
             @handle_missing missing_id,                   # missing id
                             vector[missing_id] + 1,       # start
                             high_ends[missing_id],        # end
@@ -158,10 +158,11 @@
                            false,                                  # scroll
                            data.resolution                         # conflict resolution
       # Conflict handling
-      if old_value != local_old_value
-        @handle_conflict data
-      else
-        @save_data data
+      unless data.resolved?
+        if old_value != local_old_value
+          @handle_conflict data
+        else
+          @save_data data
 
       # color = "Gainsboro"
       # if local_old_value != old_value
@@ -217,7 +218,8 @@
         # resolve the conflict
         send_queue = JSON.parse localStorage._send_queue
         conflicting_message = send_queue[index_of_conflict]
-        send_queue[index_of_conflict] = null
+        send_queue[index_of_conflict].resolved = true
+        localStorage._send_queue = JSON.stringify send_queue
         # resend conflicting update as a patch to the current storage state
         debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
         @send_data(conflicting_message.key, conflicting_message.value, true)
@@ -293,6 +295,8 @@
           nack: true
         debug "Acquiring missing messages [\#{start}..\#{end}] for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
+      else
+        debug "Waiting for it...", "CornflowerBlue"
 
     @visualize_data_flow = (id, container, column, top_color, bottom_color, warning=false, scroll=false, resolution=false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
