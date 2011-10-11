@@ -7,6 +7,16 @@ $ ->
         deleted = @splice index, 1
       deleted
       
+  # return first element in array
+  unless Array::first?
+    Array::first = -> 
+      @[0]
+      
+  # return last element in array
+  unless Array::last?
+    Array::last = -> 
+      @[@.length - 1]
+  
   # delete at specified index
   unless Array::delete_at?
     Array::delete_at = (index) -> 

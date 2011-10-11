@@ -29,6 +29,7 @@
       localStorage._nack_index ?= JSON.stringify {}
       localStorage._sender_index ?= JSON.stringify {}
       localStorage._conflict_index ?= JSON.stringify {}
+      localStorage._offline_queue ?= JSON.stringify []
       web_socket = new Socket("ws://y.odel.it:8080/")
       window.web_socket = web_socket
 
@@ -42,7 +43,9 @@
         # debug "connected..."
         window.web_socket.send JSON.stringify
           id: localStorage._id
+          vector: JSON.parse localStorage._vector
           subscribe: true
+        window.subscription_sent = new Date().getTime()
 
       web_socket.onmessage = (evt) ->
         # debug evt.data, "Gainsboro"
@@ -56,9 +59,16 @@
           # save index updates to localstorage
           localStorage._index = JSON.stringify(index)
         else if data.subscribe? and data.id != id         # handle subscription
-          index[index.length] = data.id
           # save index updates to localstorage
+          index[index.length] = data.id
           localStorage._index = JSON.stringify(index)
+          # resend all data the new node is missing
+          vector = JSON.parse localStorage._vector
+          data.vector[id] ?= -1
+          if data.vector[id] < vector[id]
+            data.start = data.vector[id] + 1
+            data.end = vector[id]
+            document.send_retry data
         else if data.unsubscribe? and data.id != id       # handle unsubscription
           index.delete data.id
           # save index updates to localstorage
@@ -70,7 +80,7 @@
         else if data.arresto_momentum?
           document.interrupt()
         else if data.nack?                                # handle multicast nack
-          debug evt.data
+          # debug evt.data
           document.send_retry data
         else if data.retry?                                # consume multicast retry
           # debug evt.data
@@ -80,7 +90,6 @@
         else if data.id != id                             # consume multicast messages
           document.handle_data data
         # debug localStorage._index, "Gainsboro"
-
       web_socket.onclose = ->
         localStorage._index = JSON.stringify []
         $("#offbutton").html("Reconnect")
@@ -196,7 +205,7 @@
       else                                            # I can resolve this myself
         @resolve_conflict conflict
 
-    @resolve_conflict = (data) ->  
+    @resolve_conflict = (data) ->
       conflict_index = JSON.parse localStorage._conflict_index
       # is the conflict being handled already?
       unless (conflicts = conflict_index[data.object])? and data.vector[localStorage._id] in conflicts
@@ -204,7 +213,7 @@
         conflict_index[data.object] ?= []
         conflict_index[data.object].push data.vector[localStorage._id]
         localStorage._conflict_index = JSON.stringify conflict_index
-        # resolve the conflict        
+        # resolve the conflict
         send_queue = JSON.parse localStorage._send_queue
         conflicting_message = send_queue[data.vector[localStorage._id]]
         # resend conflicting update as a patch to the current storage state
@@ -259,9 +268,12 @@
     @handle_missing = (id, start, end, data_id) ->
       nack_index = JSON.parse localStorage._nack_index
       now = new Date().getTime()
-      if not nack_index[id]? or                         # no nack sent yet
-         nack_index[id].end < end or                    # previous nack doesn't include all messages
-         now - nack_index[id].time > window.nack_window # nack timeout
+      if (not nack_index[id]? or                               # no nack sent yet
+          nack_index[id].end < end or                          # previous nack doesn't include all messages
+          now - nack_index[id].time > window.nack_window) and  # nack timeout
+         (not window.subscription_sent? or                     # not subscribed to peers yet (this shouldn't be the case)
+          now - window.subscription_sent > window.nack_window) # subscription timeout
+         
         # only request the messages that are not requested yet
         start = nack_index[id].end + 1 if nack_index[id]? and
                                           now - nack_index[id].time <= window.nack_window
@@ -287,7 +299,7 @@
         color_box.prependTo("\#{container} > #\#{column}")
       else
         color_box.insertAfter("\#{container} > #\#{column} > .color_stub")
-      color_box.css("border", "1px solid Crimson") if warning  
+      color_box.css("border", "1px solid Crimson") if warning
       color_box.css("border", "1px solid CornFlowerBlue") if resolution and not warning
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
@@ -345,6 +357,7 @@
       localStorage._nack_index = JSON.stringify {}
       localStorage._sender_index = JSON.stringify {}
       localStorage._conflict_index = JSON.stringify {}
+      localStorage._offline_queue = JSON.stringify []
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
@@ -470,7 +483,7 @@
       else
         count = ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
-      
+
       old_value = localStorage[key]
       old_value ?= "#ffffff"
       data =
@@ -488,9 +501,9 @@
       # send and store the data
       window.web_socket.send JSON.stringify data
       document.handle_data(data)
-      # debug JSON.stringify(data), "YellowGreen" if conflict_resolution
+      # debug data, "YellowGreen" if conflict_resolution
 
-    @random_message = ->  
+    @random_message = ->
       # generate data for localstorage
       number = (Math.floor(Math.random() * 20) + 1).toString()
       number = "0" + number until number.length == 2
@@ -528,8 +541,9 @@
             document.stop()
             $(this).html("Start")
                    .removeClass("stop")
-                   .addClass("start")
-            $(".speed").hide()
+                   .addClass("start")     
+            $("#speedbutton").html("Faster")
+                             .hide()
             $(".clear").removeClass("disabled")
                        .show()
 
