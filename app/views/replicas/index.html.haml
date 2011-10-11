@@ -62,13 +62,12 @@
           # save index updates to localstorage
           index[index.length] = data.id
           localStorage._index = JSON.stringify(index)
-          # resend all data the new node is missing
+          # resend all data the new node is missing or send empty array
           vector = JSON.parse localStorage._vector
           data.vector[id] ?= -1
-          if data.vector[id] < vector[id]
-            data.start = data.vector[id] + 1
-            data.end = vector[id]
-            document.send_retry data
+          data.start = data.vector[id] + 1
+          data.end = vector[id]
+          document.send_retry data
         else if data.unsubscribe? and data.id != id       # handle unsubscription
           index.delete data.id
           # save index updates to localstorage
@@ -185,9 +184,9 @@
       sender_index = JSON.parse localStorage._sender_index
       previous = sender_index[data.key]
       # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
-      [loser, loser_vector, winner_vector] = if data.id > previous.id   # new message is loser
+      [loser, loser_vector, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
         [data.id, data.vector, previous.vector]
-      else                                                              # old message is loser
+      else                                                                               # old message is loser
         # swap conflict indicators
         $("#\#{previous.id}_\#{previous.vector[previous.id]}").children("div").css("border", "3px solid red")
         $("#\#{data.id}_\#{data.vector[data.id]}").children("div").css("border", "none")
@@ -224,7 +223,7 @@
         localStorage._send_queue = JSON.stringify send_queue
         # resend conflicting update as a patch to the current storage state
         debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
-        @send_data(conflicting_message.key, conflicting_message.value, true)
+        @construe_data(conflicting_message.key, conflicting_message.value, true)
 
     # Detect missing messages
     @missing_id_for = (data) ->
@@ -342,7 +341,17 @@
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
       reception_queue = JSON.parse localStorage._reception_queue
       if reception_queue.empty() and process_result
+        setTimeout -> # wait for all retry messages to arrive
+          document.consume_offline_queue # consume the offline queue
+        , window.nack_window
         debug "Resuming normal operation", "CornflowerBlue"
+      
+    @consume_offline_queue = ->
+      offline_queue = JSON.parse localStorage._offline_queue
+      localStorage._offline_queue = JSON.stringify []
+      debug "Consuming offline queue..." unless offline_queue.empty()
+      for data in offline_queue
+        document.deliver_data data
 
     @interrupt = ->
       window.interval_id ?= -1
@@ -484,7 +493,7 @@
         window.semaphore = false
       , 200
 
-    @send_data = (key, value, conflict_resolution=false) ->
+    @construe_data = (key, value, conflict_resolution=false) ->
       # construct data object
       old_value = localStorage[key]
       old_value ?= "#ffffff"
@@ -495,17 +504,23 @@
         old_value: old_value
         crc: crc32("\#{key}|\#{value}")
         resolution: conflict_resolution
-      unless window.offline? # actually deliver the data
-        # increment vector timestamp for this process and add it to data
-        data.vector = @get_incremented_vector()
-        # push the message in the sent queue for later reference
-        @en_send_queue data
-        # send and store the data
-        window.web_socket.send JSON.stringify data
-        document.handle_data(data)
+      unless window.offline? # actually send the data
+        @deliver_data data
       else # queue the data
-        ;
+        data.offline = true
+        offline_queue = JSON.parse localStorage._offline_queue
+        offline_queue.push data
+        localStorage._offline_queue = JSON.stringify offline_queue
       # debug data, "YellowGreen" if conflict_resolution
+      
+    @deliver_data = (data) ->  
+      # increment vector timestamp for this process and add it to data
+      data.vector = @get_incremented_vector()
+      # push the message in the sent queue for later reference
+      @en_send_queue data
+      # send and store the data
+      window.web_socket.send JSON.stringify data
+      @handle_data(data)
 
     @get_incremented_vector = ->
       vector = JSON.parse localStorage._vector
@@ -527,7 +542,7 @@
       number = "0" + number until number.length == 2
       key = "key_" + number
       value = @random_color()
-      document.send_data(key, value)
+      document.construe_data(key, value)
 
     @start = (interval) ->
       window.web_socket.send JSON.stringify
