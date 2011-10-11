@@ -209,13 +209,15 @@
       conflict_index = JSON.parse localStorage._conflict_index
       # is the conflict being handled already?
       unless (conflicts = conflict_index[data.object])? and data.vector[localStorage._id] in conflicts
+        index_of_conflict = data.vector[localStorage._id]
         # mark the conflict as being handled
         conflict_index[data.object] ?= []
-        conflict_index[data.object].push data.vector[localStorage._id]
+        conflict_index[data.object].push index_of_conflict
         localStorage._conflict_index = JSON.stringify conflict_index
         # resolve the conflict
         send_queue = JSON.parse localStorage._send_queue
-        conflicting_message = send_queue[data.vector[localStorage._id]]
+        conflicting_message = send_queue[index_of_conflict]
+        send_queue[index_of_conflict] = null
         # resend conflicting update as a patch to the current storage state
         debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
         @send_data(conflicting_message.key, conflicting_message.value, true)
@@ -316,7 +318,7 @@
     @consume_retry = (data) ->
       # put retry on the queue
       for data_part in data.retry
-        @enqueue data_part
+        @enqueue data_part if data_part
       nack_index = JSON.parse localStorage._nack_index
       delete nack_index[data_id]
       localStorage._nack_index = JSON.stringify nack_index
