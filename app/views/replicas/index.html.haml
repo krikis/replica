@@ -485,14 +485,7 @@
       , 200
 
     @send_data = (key, value, conflict_resolution=false) ->
-      # increment vector timestamp for this process
-      vector = JSON.parse localStorage._vector
-      unless vector[localStorage._id]?
-        count = vector[localStorage._id] = 0
-      else
-        count = ++vector[localStorage._id]
-      localStorage._vector = JSON.stringify vector
-
+      # construct data object
       old_value = localStorage[key]
       old_value ?= "#ffffff"
       data =
@@ -501,16 +494,31 @@
         value: value
         old_value: old_value
         crc: crc32("\#{key}|\#{value}")
-        vector: vector
         resolution: conflict_resolution
-      # push the message in the sent queue for later reference
-      send_queue = JSON.parse localStorage._send_queue
-      send_queue[count] = data
-      localStorage._send_queue = JSON.stringify send_queue
-      # send and store the data
-      window.web_socket.send JSON.stringify data
-      document.handle_data(data)
+      unless window.offline? # actually deliver the data
+        # increment vector timestamp for this process and add it to data
+        data.vector = @get_incremented_vector()
+        # push the message in the sent queue for later reference
+        @en_send_queue data
+        # send and store the data
+        window.web_socket.send JSON.stringify data
+        document.handle_data(data)
+      else # queue the data
+        ;
       # debug data, "YellowGreen" if conflict_resolution
+
+    @get_incremented_vector = ->
+      vector = JSON.parse localStorage._vector
+      unless vector[localStorage._id]?
+        count = vector[localStorage._id] = 0
+      else
+        count = ++vector[localStorage._id]
+      localStorage._vector = JSON.stringify vector
+      
+    @en_send_queue = (data) ->      
+      send_queue = JSON.parse localStorage._send_queue
+      send_queue[data.vector[data.id]] = data
+      localStorage._send_queue = JSON.stringify send_queue
 
     @random_message = ->
       # generate data for localstorage
