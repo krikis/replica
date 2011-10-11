@@ -30,6 +30,7 @@
       localStorage._sender_index ?= JSON.stringify {}
       localStorage._conflict_index ?= JSON.stringify {}
       localStorage._offline_queue ?= JSON.stringify []
+      localStorage._offline_data ?= JSON.stringify {}
       web_socket = new Socket("ws://y.odel.it:8080/")
       window.web_socket = web_socket
 
@@ -349,6 +350,7 @@
     @consume_offline_queue = ->
       offline_queue = JSON.parse localStorage._offline_queue
       localStorage._offline_queue = JSON.stringify []
+      localStorage._offline_data = JSON.stringify {}
       debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
       for data in offline_queue
         @deliver_data data
@@ -376,6 +378,7 @@
       localStorage._sender_index = JSON.stringify {}
       localStorage._conflict_index = JSON.stringify {}
       localStorage._offline_queue = JSON.stringify []
+      localStorage._offline_data = JSON.stringify {}
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
@@ -501,12 +504,17 @@
         id: localStorage._id
         key: key
         value: value
-        old_value: old_value
         crc: crc32("\#{key}|\#{value}")
         resolution: conflict_resolution
       unless window.offline? # actually send the data
+        data.old_value: old_value
         @deliver_data data
-      else # queue the data
+      else # queue the data  
+        offline_data = JSON.parse localStorage._offline_data
+        data.old_value = offline_data[key]
+        offline_data[key] = data.value
+        localStorage._offline_data = JSON.stringify offline_data
+        data.old_value ?= old_value
         data.offline = true
         offline_queue = JSON.parse localStorage._offline_queue
         offline_queue.push data
