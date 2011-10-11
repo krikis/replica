@@ -507,7 +507,7 @@
         crc: crc32("\#{key}|\#{value}")
         resolution: conflict_resolution
       unless window.offline? # actually send the data
-        data.old_value: old_value
+        data.old_value = old_value
         @deliver_data data
       else # queue the data  
         offline_data = JSON.parse localStorage._offline_data
