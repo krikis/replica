@@ -150,14 +150,15 @@
         localStorage._vector = JSON.stringify vector
 
       # Visualize the data (to be) stored
-      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
-                           "#data",                                # container
-                           key,                                    # column
-                           value,                                  # top_color
-                           old_value,                              # bottom_color
-                           old_value != local_old_value,           # warning
-                           false,                                  # scroll
-                           data.resolution                         # conflict resolution
+      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}",                          # id
+                           "#data",                                                         # container
+                           key,                                                             # column
+                           value,                                                           # top_color
+                           old_value,                                                       # bottom_color
+                           (old_value != local_old_value) and not data.resolved?,           # conflict
+                           false,                                                           # scroll
+                           data.resolution,                                                 # conflict resolution
+                           data.resolved                                                    # resolved conflict
       # Conflict handling
       unless data.resolved?
         if old_value != local_old_value
@@ -188,7 +189,7 @@
         [data.id, data.vector, previous.vector]
       else                                                              # old message is loser
         # swap conflict indicators
-        $("#\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "1px solid red")
+        $("#\#{previous.id}_\#{previous.vector[previous.id]}").css("border", "3px solid red")
         $("#\#{data.id}_\#{data.vector[data.id]}").css("border", "none")
         # save the data
         @save_data data
@@ -251,7 +252,7 @@
                            key,                                    # column
                            value,                                  # top_color
                            old_value,                              # bottom_color
-                           false,                                  # warning
+                           false,                                  # conflict
                            true                                    # scroll
 
     # sort data by time vector
@@ -299,22 +300,23 @@
       else
         debug "Waiting for it...", "CornflowerBlue"
 
-    @visualize_data_flow = (id, container, column, top_color, bottom_color, warning=false, scroll=false, resolution=false) ->
+    @visualize_data_flow = (id, container, column, top_color, bottom_color, conflict=false, scroll=false, resolution=false, resolved=false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
       color_box = $("<div id='\#{id}' class='color_box' title='\#{id}'>")
       unless scroll
         color_box.prependTo("\#{container} > #\#{column}")
       else
         color_box.insertAfter("\#{container} > #\#{column} > .color_stub")
-      color_box.css("border", "1px solid Crimson") if warning
-      color_box.css("border", "1px solid CornFlowerBlue") if resolution and not warning
+      color_box.css("border", "3px solid Crimson") if conflict
+      color_box.css("border", "3px solid CornFlowerBlue") if resolution and not conflict
+      color_box.css("border", "3px solid Black") if resolved
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
 
     @send_retry = (data) ->
       send_queue = JSON.parse localStorage._send_queue
       {start, end} = data
-      $("#data #\#{localStorage._id}_\#{number}").css("border", "1px solid green") for number in [start..end]
+      $("#data #\#{localStorage._id}_\#{number}").css("border", "3px solid green") for number in [start..end]
       window.web_socket.send JSON.stringify
         id: localStorage._id
         dest: data.id
