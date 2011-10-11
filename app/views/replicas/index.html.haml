@@ -510,10 +510,11 @@
     @get_incremented_vector = ->
       vector = JSON.parse localStorage._vector
       unless vector[localStorage._id]?
-        count = vector[localStorage._id] = 0
+        vector[localStorage._id] = 0
       else
-        count = ++vector[localStorage._id]
+        ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
+      vector
       
     @en_send_queue = (data) ->      
       send_queue = JSON.parse localStorage._send_queue
