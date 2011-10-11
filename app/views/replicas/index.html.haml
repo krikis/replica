@@ -342,16 +342,16 @@
       reception_queue = JSON.parse localStorage._reception_queue
       if reception_queue.empty() and process_result
         setTimeout -> # wait for all retry messages to arrive
-          document.consume_offline_queue # consume the offline queue
+          document.consume_offline_queue() # consume the offline queue
         , window.nack_window
-        debug "Resuming normal operation", "CornflowerBlue"
+        debug "Resuming normal operation", "CornflowerBlue" unless data.retry.empty()
       
     @consume_offline_queue = ->
       offline_queue = JSON.parse localStorage._offline_queue
       localStorage._offline_queue = JSON.stringify []
-      debug "Consuming offline queue..." unless offline_queue.empty()
+      debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
       for data in offline_queue
-        document.deliver_data data
+        @deliver_data data
 
     @interrupt = ->
       window.interval_id ?= -1
@@ -542,13 +542,15 @@
       number = "0" + number until number.length == 2
       key = "key_" + number
       value = @random_color()
-      document.construe_data(key, value)
+      @construe_data(key, value)
 
     @start = (interval) ->
       window.web_socket.send JSON.stringify
         id: localStorage._id
         disable_clear: true
-      window.interval_id = window.setInterval document.random_message, interval
+      window.interval_id = window.setInterval -> 
+        document.random_message()
+      , interval
 
     @stop = ->
       window.clearInterval window.interval_id
