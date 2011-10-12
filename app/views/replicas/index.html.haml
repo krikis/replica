@@ -189,7 +189,7 @@
         [data.id, data.vector, previous.vector]
       else                                                                               # old message is loser
         # swap conflict indicators
-        $("#\#{previous.id}_\#{previous.vector[previous.id]}").children("div").css("border", "3px solid red")
+        $("#\#{previous.id}_\#{previous.vector[previous.id]}").children("div").css("border", "3px solid Crimson")
         $("#\#{data.id}_\#{data.vector[data.id]}").children("div").css("border", "none")
         # save the data
         @save_data data
