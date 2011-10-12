@@ -355,7 +355,7 @@
         debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
         for data_part in offline_queue
           @deliver_data data_part
-          $("#offline_queue #\#{data_part.id}_\#{offline_queue.indexOf data_part}").remove()
+          $("#offline_queue #offline_\#{offline_queue.indexOf data_part}").remove()
 
     @interrupt = ->
       window.interval_id ?= -1
@@ -526,7 +526,10 @@
 #footer
   #logo
     %a{:href => "http://www.w3.org/html/logo/"}<
-      %img{:alt => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", :height => "64", :src => "http://www.w3.org/html/logo/badge/html5-badge-h-connectivity-storage.png", :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", :width => "165"}
+      %img{:alt => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", 
+           :height => "64", :src => "http://www.w3.org/html/logo/badge/html5-badge-h-connectivity-storage.png", 
+           :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", 
+           :width => "165"}
   #id= "#{session[:key]}"
   #spacer
 
@@ -563,7 +566,7 @@
         offline_queue = JSON.parse localStorage._offline_queue
         offline_queue.push data
         localStorage._offline_queue = JSON.stringify offline_queue
-        @visualize_data_flow "\#{data.id}_\#{offline_queue.length - 1}", # id
+        @visualize_data_flow "offline_\#{offline_queue.length - 1}", # id
                              "#offline_queue",                       # container
                              key,                                    # column
                              value,                                  # top_color
