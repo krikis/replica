@@ -353,8 +353,9 @@
         localStorage._offline_queue = JSON.stringify []
         localStorage._offline_data = JSON.stringify {}
         debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
-        for data in offline_queue
-          @deliver_data data
+        for data_part in offline_queue
+          @deliver_data data_part
+          $("#offline_queue #\#{data_part.id}_\#{offline_queue.indexOf data_part}").remove()
 
     @interrupt = ->
       window.interval_id ?= -1
@@ -562,7 +563,7 @@
         offline_queue = JSON.parse localStorage._offline_queue
         offline_queue.push data
         localStorage._offline_queue = JSON.stringify offline_queue
-        @visualize_data_flow "\#{data.id}_\#{offline_queue.length}", # id
+        @visualize_data_flow "\#{data.id}_\#{offline_queue.length - 1}", # id
                              "#offline_queue",                       # container
                              key,                                    # column
                              value,                                  # top_color
