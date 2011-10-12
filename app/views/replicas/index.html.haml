@@ -155,7 +155,6 @@
                            key,                                                             # column
                            value,                                                           # top_color
                            old_value,                                                       # bottom_color
-                           (old_value != local_old_value) and not data.resolved?,           # conflict
                            false,                                                           # scroll
                            data.resolution,                                                 # conflict resolution
                            data.resolved                                                    # resolved conflict
@@ -188,12 +187,10 @@
       [loser, loser_vector, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
         [data.id, data.vector, previous.vector]
       else                                                                               # old message is loser
-        # swap conflict indicators
-        $("#\#{previous.id}_\#{previous.vector[previous.id]}").children("div").css("border", "3px solid Crimson")
-        $("#\#{data.id}_\#{data.vector[data.id]}").children("div").css("border", "none")
         # save the data
         @save_data data
         [previous.id, previous.vector, data.vector]
+      $("#\#{loser}_\#{loser_vector[loser]}").children("div").css("border", "3px solid Crimson")
       conflict =
         id: localStorage._id
         dest: loser
@@ -300,15 +297,14 @@
       else
         debug "Waiting for it...", "CornflowerBlue"
 
-    @visualize_data_flow = (id, container, column, top_color, bottom_color, conflict=false, scroll=false, resolution=false, resolved=false) ->
+    @visualize_data_flow = (id, container, column, top_color, bottom_color, scroll=false, resolution=false, resolved=false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
       color_box = $("<div id='\#{id}' class='color_box' title='\#{id}'><div>")
       unless scroll
         color_box.prependTo("\#{container} > #\#{column}")
       else
         color_box.insertAfter("\#{container} > #\#{column} > .color_stub")
-      color_box.children("div").css("border", "3px solid Crimson") if conflict
-      color_box.children("div").css("border", "3px solid CornFlowerBlue") if resolution and not conflict
+      color_box.children("div").css("border", "3px solid CornFlowerBlue") if resolution
       color_box.children("div").css("border", "3px solid Black") if resolved
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
@@ -571,7 +567,6 @@
                              key,                                    # column
                              value,                                  # top_color
                              data.old_value,                         # bottom_color
-                             false,                                  # conflict
                              true                                    # scroll
       # debug data, "YellowGreen" if conflict_resolution
 
