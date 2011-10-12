@@ -279,7 +279,7 @@
           now - nack_index[id].time > window.nack_window) and  # nack timeout
          (not window.subscription_sent? or                     # not subscribed to peers yet (this shouldn't be the case)
           now - window.subscription_sent > window.nack_window) # subscription timeout
-         
+
         # only request the messages that are not requested yet
         start = nack_index[id].end + 1 if nack_index[id]? and
                                           now - nack_index[id].time <= window.nack_window
@@ -346,14 +346,15 @@
           document.consume_offline_queue() # consume the offline queue
         , window.nack_window
         debug "Resuming normal operation", "CornflowerBlue" unless data.retry.empty()
-      
+
     @consume_offline_queue = ->
-      offline_queue = JSON.parse localStorage._offline_queue
-      localStorage._offline_queue = JSON.stringify []
-      localStorage._offline_data = JSON.stringify {}
-      debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
-      for data in offline_queue
-        @deliver_data data
+      unless window.offline?
+        offline_queue = JSON.parse localStorage._offline_queue
+        localStorage._offline_queue = JSON.stringify []
+        localStorage._offline_data = JSON.stringify {}
+        debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
+        for data in offline_queue
+          @deliver_data data
 
     @interrupt = ->
       window.interval_id ?= -1
@@ -394,6 +395,48 @@
 #logbutton.button.log Hide Log
 #arresto.button.arresto Arresto Momentum
 
+%div.container
+  #offline_queue
+    #key_01.color_column
+      %div.color_stub
+    #key_02.color_column
+      %div.color_stub
+    #key_03.color_column
+      %div.color_stub
+    #key_04.color_column
+      %div.color_stub
+    #key_05.color_column
+      %div.color_stub
+    #key_06.color_column
+      %div.color_stub
+    #key_07.color_column
+      %div.color_stub
+    #key_08.color_column
+      %div.color_stub
+    #key_09.color_column
+      %div.color_stub
+    #key_10.color_column
+      %div.color_stub
+    #key_11.color_column
+      %div.color_stub
+    #key_12.color_column
+      %div.color_stub
+    #key_13.color_column
+      %div.color_stub
+    #key_14.color_column
+      %div.color_stub
+    #key_15.color_column
+      %div.color_stub
+    #key_16.color_column
+      %div.color_stub
+    #key_17.color_column
+      %div.color_stub
+    #key_18.color_column
+      %div.color_stub
+    #key_19.color_column
+      %div.color_stub
+    #key_20.color_column
+      %div.color_stub
 %div.container
   #queue
     #key_01.color_column
@@ -509,7 +552,7 @@
       unless window.offline? # actually send the data
         data.old_value = old_value
         @deliver_data data
-      else # queue the data  
+      else # queue the data
         offline_data = JSON.parse localStorage._offline_data
         data.old_value = offline_data[key]
         offline_data[key] = data.value
@@ -519,9 +562,16 @@
         offline_queue = JSON.parse localStorage._offline_queue
         offline_queue.push data
         localStorage._offline_queue = JSON.stringify offline_queue
+        @visualize_data_flow "\#{data.id}_\#{offline_queue.length}", # id
+                             "#offline_queue",                       # container
+                             key,                                    # column
+                             value,                                  # top_color
+                             data.old_value,                         # bottom_color
+                             false,                                  # conflict
+                             true                                    # scroll
       # debug data, "YellowGreen" if conflict_resolution
-      
-    @deliver_data = (data) ->  
+
+    @deliver_data = (data) ->
       # increment vector timestamp for this process and add it to data
       data.vector = @get_incremented_vector()
       # push the message in the sent queue for later reference
@@ -538,8 +588,8 @@
         ++vector[localStorage._id]
       localStorage._vector = JSON.stringify vector
       vector
-      
-    @en_send_queue = (data) ->      
+
+    @en_send_queue = (data) ->
       send_queue = JSON.parse localStorage._send_queue
       send_queue[data.vector[data.id]] = data
       localStorage._send_queue = JSON.stringify send_queue
@@ -556,7 +606,7 @@
       window.web_socket.send JSON.stringify
         id: localStorage._id
         disable_clear: true
-      window.interval_id = window.setInterval -> 
+      window.interval_id = window.setInterval ->
         document.random_message()
       , interval
 
@@ -584,7 +634,7 @@
             document.stop()
             $(this).html("Start")
                    .removeClass("stop")
-                   .addClass("start")     
+                   .addClass("start")
             $("#speedbutton").html("Faster")
                              .hide()
             $(".clear").removeClass("disabled")
