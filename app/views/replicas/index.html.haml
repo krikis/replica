@@ -18,7 +18,7 @@
       # TODO: preinitialize #queue with localStorage queue
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
       # set time window for sending nacks
-      window.nack_window = 20000
+      window.nack_window = 10000
       # initialize local storage system variables
       localStorage._id = "#{session[:key]}"
       localStorage._index = JSON.stringify []
@@ -350,7 +350,8 @@
         localStorage._offline_data = JSON.stringify {}
         debug "Consuming offline queue...", "CornFlowerBlue" unless offline_queue.empty()
         for data_part in offline_queue
-          @deliver_data data_part
+          # rebase offline data
+          @construe_data(data_part.key, data_part.value)
           $("#offline_queue #offline_\#{offline_queue.indexOf data_part}").remove()
 
     @interrupt = ->
@@ -522,9 +523,9 @@
 #footer
   #logo
     %a{:href => "http://www.w3.org/html/logo/"}<
-      %img{:alt => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", 
-           :height => "64", :src => "http://www.w3.org/html/logo/badge/html5-badge-h-connectivity-storage.png", 
-           :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage", 
+      %img{:alt => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage",
+           :height => "64", :src => "http://www.w3.org/html/logo/badge/html5-badge-h-connectivity-storage.png",
+           :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage",
            :width => "165"}
   #id= "#{session[:key]}"
   #spacer
