@@ -99,9 +99,9 @@
         # debug localStorage._index, "Gainsboro"
         unless window.offline?
           debug "reconnecting in \#{window.reconnect_on} seconds...", "Gainsboro"
-          setTimeout (->
+          setTimeout ->
             document.init_socket()
-          ), window.reconnect_on * 1000
+          , window.reconnect_on * 1000
           # increase the timeout fibonacciwise in order to decrease the network load
           tmp = window.reconnect_on
           window.reconnect_on = window.reconnect_on + window.prev_reconnect_on
@@ -602,13 +602,13 @@
       value = @random_color()
       @construe_data(key, value)
 
-    @start = (interval) ->
+    @start = () ->
       window.web_socket.send JSON.stringify
         id: localStorage._id
         disable_clear: true
       window.interval_id = window.setInterval ->
         document.random_message()
-      , interval
+      , window.interval
 
     @stop = ->
       window.clearInterval window.interval_id
@@ -623,7 +623,8 @@
       $("#startbutton").click ->
         if document.acquire_semaphore()
           unless window.interval_id?
-            document.start 1000
+            window.interval = 1000
+            document.start()
             $(this).html("Stop")
                    .removeClass("start")
                    .addClass("stop")
@@ -644,15 +645,18 @@
         if document.acquire_semaphore()
           if $(this).html() == "Faster"
             document.stop()
-            document.start(500)
+            window.interval = 500
+            document.start()
             $(this).html("Aieee!!")
           else if $(this).html() == "Aieee!!"
             document.stop()
-            document.start(50)
+            window.interval = 50
+            document.start()
             $(this).html("Slower")
           else
             document.stop()
-            document.start(1000)
+            window.interval = 1000
+            document.start()
             $(this).html("Faster")
 
       $("#clearbutton").click ->
@@ -665,11 +669,17 @@
       $("#offbutton").click ->
         if document.acquire_semaphore()
           if $(this).html() == "Offline"
+            document.stop()
             window.offline = true
             window.web_socket.close()
+            document.start()
           else
             delete window.offline
+            document.stop()
             document.init_socket()
+            setTimeout ->
+              document.start()
+            , window.nack_window
 
       $("#logbutton").click ->
         if document.acquire_semaphore()
