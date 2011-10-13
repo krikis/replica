@@ -533,6 +533,7 @@
   $ ->
     # semaphore to prevent doubleclick on buttons
     @acquire_semaphore = ->
+      return true if !!"#{request.env["HTTP_USER_AGENT"][/(iPad)/]}"
       return false if window.semaphore
       window.semaphore = true
       setTimeout ->
