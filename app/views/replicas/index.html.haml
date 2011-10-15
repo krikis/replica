@@ -377,6 +377,7 @@
       localStorage._conflict_index = JSON.stringify {}
       localStorage._offline_queue = JSON.stringify []
       localStorage._offline_data = JSON.stringify {}
+      $("#offline_queue > .color_column").html("<div class='color_stub'>")
       $("#queue > .color_column").html("<div class='color_stub'>")
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
@@ -668,18 +669,20 @@
 
       $("#offbutton").click ->
         if document.acquire_semaphore()
+          interval_id = window.interval_id
           if $(this).html() == "Offline"
-            document.stop()
+            document.stop() if interval_id?
             window.offline = true
             window.web_socket.close()
-            document.start()
+            document.start() if interval_id?
           else
             delete window.offline
-            document.stop()
+            document.stop() if interval_id?
             document.init_socket()
-            setTimeout ->
-              document.start()
-            , window.nack_window
+            if interval_id?
+              setTimeout ->
+                document.start() 
+              , window.nack_window
 
       $("#logbutton").click ->
         if document.acquire_semaphore()
