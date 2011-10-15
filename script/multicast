@@ -46,7 +46,7 @@ EventMachine.run {
         unless signature = @index.keys.select{|sign| @index[sign] == object["id"]}.first and
                signature == ws.signature
           @index[ws.signature] = object["id"]
-          @index.delete signature
+          @index.delete signature if signature
         end
         # multicast the message to all clients in the network
         @channel.push object
