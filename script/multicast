@@ -11,35 +11,47 @@ EventMachine.run {
 
   EventMachine::WebSocket.start(:host => "0.0.0.0", :port => 8080, :secure => false) do |ws|
 
+    # a client connects to the web socket server
     ws.onopen {
+      # subscribe the client to the multicast channel (save the subscription for later)
       sid = @channel.subscribe do |msg|
+        # check destination filter if point-to-point message
         unless msg["dest"] and msg["dest"] != @index[ws.signature]
           puts msg.inspect
-          ws.send JSON.dump(msg.reject{|k, v| k == :signature})
+          # send multicast or point-to-point message to client
+          ws.send JSON.dump(msg)
         end
       end
-      puts "+#{sid}"
+      puts "+#{sid}" # log subscription id
+      # send overview of the peer-to-peer network (not necessary)
       ws.send JSON.dump({:index => @index.values})
 
+      # a client disconnects from the web-socket server
       ws.onclose {
+        # unsubscribe it from the channel using the saved id
         @channel.unsubscribe sid
-        puts "-#{sid}"
+        puts "-#{sid}" # log subscription id
+        # multicast unsubscription so that clients can adapt their view of the network (not necessary)
         @channel.push({"id" => @index.delete(ws.signature),
-                       "unsubscribe" => true,
-                       :signature => ws.signature})
+                       "unsubscribe" => true})
       }
     }
 
+    # a message was sent to the web socket server
     ws.onmessage {|msg|
+      # parse the message to a JSON object
       object = (JSON.parse msg rescue nil)
       if object and object["id"]
-        if signature = @index.keys.select{|signature| @index[signature] == object["id"]}.first and
+        # link the client's unique session id to its web-socket connection should it have changed
+        # this is needed to keep a client's unique id in the network after it has been offline
+        # this unique id is used for point-to-point communication
+        if signature = @index.keys.select{|sign| @index[sign] == object["id"]}.first and
            signature != ws.signature
           @index[ws.signature] = @index[signature]
           @index.delete signature
         end
-        @channel.push object.merge({:signature => ws.signature})
-        @index[ws.signature] = object["id"]
+        # multicast the message to all clients in the network
+        @channel.push object
       end
     }
 
