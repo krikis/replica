@@ -42,12 +42,10 @@ EventMachine.run {
       # parse the message to a JSON object
       object = (JSON.parse msg rescue nil)
       if object and object["id"]
-        # link the client's unique session id to its web-socket connection should it have changed
-        # this is needed to keep a client's unique id in the network after it has been offline
-        # this unique id is used for point-to-point communication
-        if signature = @index.keys.select{|sign| @index[sign] == object["id"]}.first and
-           signature != ws.signature
-          @index[ws.signature] = @index[signature]
+        # save the client's unique id for point-to-point communication
+        unless signature = @index.keys.select{|sign| @index[sign] == object["id"]}.first and
+               signature == ws.signature
+          @index[ws.signature] = object["id"]
           @index.delete signature
         end
         # multicast the message to all clients in the network
