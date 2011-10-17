@@ -1,6 +1,6 @@
 
 :coffeescript
-  $ ->
+  $ -> # jQuery document.ready
     debug = (string, color="black", json=true) ->
       string = JSON.stringify string unless typeof string == "string"
       string = string.replace(/,/g, ', ').replace(/":/g, '": ') if json
@@ -236,11 +236,13 @@
 
     # Detect missing messages
     @missing_id_for = (data) ->
-      vector = JSON.parse localStorage._vector
-      high_ends = JSON.parse localStorage._high_ends
+      vector = JSON.parse localStorage._vector       # local time vector
+      high_ends = JSON.parse localStorage._high_ends # highest missing message timestamps
+      # missing messages of the sender itself
       missing_id = data.id if vector[data.id] + 1 < data.vector[data.id] and
                               (high_ends[data.id] >= data.vector[data.id] - 1 or
                                (high_ends[data.id] = data.vector[data.id] - 1)?)
+      # missing messages of other clients
       missing_ids = (id for id of data.vector when id != data.id and
                                                    vector[id] < data.vector[id] and
                                                    (high_ends[id] >= data.vector[id] or
@@ -543,7 +545,7 @@
   #spacer
 
 :coffeescript
-  $ ->
+  $ -> # jQuery document.ready
     # semaphore to prevent doubleclick on buttons
     @acquire_semaphore = ->
       return true if !!"#{request.env["HTTP_USER_AGENT"][/(iPad)/]}"
