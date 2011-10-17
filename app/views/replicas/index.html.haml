@@ -303,11 +303,11 @@
           time: new Date().getTime()
         localStorage._nack_index = JSON.stringify nack_index
         nack =
-          id: localStorage._id
-          dest: id
-          start: start
-          end: end
-          nack: true
+          id: localStorage._id  # sender id
+          dest: id              # message destination
+          start: start          # timestamp of first missing message
+          end: end              # timestamp of last missing message
+          nack: true            # message type
         debug "Acquiring missing messages [\#{start}..\#{end}] for \#{id}", "CornflowerBlue"
         window.web_socket.send JSON.stringify nack
       else
