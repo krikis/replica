@@ -284,6 +284,7 @@
         return -1 if bigger.empty() and smaller.length > 0
         return 0
 
+    # send nack for missing messages or wait for previously sent nack
     @handle_missing = (id, start, end, data_id) ->
       nack_index = JSON.parse localStorage._nack_index
       now = new Date().getTime()
@@ -303,7 +304,7 @@
           time: new Date().getTime()
         localStorage._nack_index = JSON.stringify nack_index
         nack =
-          id: localStorage._id  # sender id
+          id: localStorage._id  # unique sender id
           dest: id              # message destination
           start: start          # timestamp of first missing message
           end: end              # timestamp of last missing message
@@ -313,6 +314,7 @@
       else
         debug "Waiting for it...", "CornflowerBlue"
 
+    # visualize delivering or enqueueing messages
     @visualize_data_flow = (id, container, column, top_color, bottom_color, scroll=false, resolution=false, resolved=false) ->
       $("<div id='\#{column}' class='color_column'>").appendTo("\#{container}") if $("\#{container} > #\#{column}").length == 0
       color_box = $("<div id='\#{id}' class='color_box' title='\#{id}'><div>")
@@ -325,14 +327,17 @@
       color_box.css("background", "-webkit-gradient(linear, left top, left bottom, from(\#{top_color}), to(\#{bottom_color}))")
       $("\#{container} > #\#{column}").scrollTo(".color_box:last-child") if scroll
 
+    # resend messages requested by nack
     @send_retry = (data) ->
+      # load all sent messages
       send_queue = JSON.parse localStorage._send_queue
       {start, end} = data
       $("#data #\#{localStorage._id}_\#{number}").children("div").css("border", "3px solid green") for number in [start..end]
+      # resend the requested messages
       window.web_socket.send JSON.stringify
-        id: localStorage._id
-        dest: data.id
-        retry: send_queue[start..end]
+        id: localStorage._id            # unique sender id
+        dest: data.id                   # message destination
+        retry: send_queue[start..end]   # missing messages
 
     @consume_retry = (data) ->
       # put retry on the queue
