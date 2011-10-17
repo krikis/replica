@@ -25,7 +25,7 @@
       localStorage._index = JSON.stringify []             # network membership index (for debuggin only)
       localStorage._vector ?= JSON.stringify {}           # local time vector for gossip
       localStorage._send_queue ?= JSON.stringify []       # queue with all messages sent by client
-      localStorage._reception_queue ?= JSON.stringify []  # holdback queue for gossip
+      localStorage._holdback_queue ?= JSON.stringify []   # holdback queue for gossip
       localStorage._high_ends ?= JSON.stringify {}        # highest missing message timestamps for nack handling
       localStorage._nack_index ?= JSON.stringify {}       # index of recently sent nacks
       localStorage._conflict_cache ?= JSON.stringify {}   # cache for conflict resolution
@@ -138,9 +138,9 @@
           high_ends = JSON.parse localStorage._high_ends
           debug "Missing messages [\#{vector[missing_id] + 1}..\#{high_ends[missing_id]}] from \#{missing_id}!", "Crimson"
           @enqueue data
-          reception_queue = JSON.parse localStorage._reception_queue
-          unless reception_queue.empty() or
-                 (@missing_id_for reception_queue[0])?
+          holdback_queue = JSON.parse localStorage._holdback_queue
+          unless holdback_queue.empty() or
+                 (@missing_id_for holdback_queue[0])?
             debug "Consuming it from the queue...", "CornFlowerBlue"
             # the missing element is on the queue
             @consume_retry
@@ -251,11 +251,12 @@
       localStorage._high_ends = JSON.stringify high_ends
       missing_id
 
+    # put a message in the holdback queue until it can be delivered
     @enqueue = (data) ->
-      reception_queue = JSON.parse localStorage._reception_queue
-      reception_queue.push data
-      reception_queue.sort @by_vector
-      localStorage._reception_queue = JSON.stringify reception_queue
+      holdback_queue = JSON.parse localStorage._holdback_queue
+      holdback_queue.push data
+      holdback_queue.sort @by_vector
+      localStorage._holdback_queue = JSON.stringify holdback_queue
       {key, value, old_value} = data
       @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
                            "#queue",                               # container
@@ -266,7 +267,7 @@
 
     # sort data by time vector
     @by_vector = (first, last) ->
-      do (first, last) ->
+      do (first, last) -> # nesting to keep variables within the scope
         # initialize values for all client ids, should they not be present
         first_keys = (count for count of first.vector).sort()
         last_keys = (count for count of last.vector).sort()
@@ -345,14 +346,14 @@
       process_result = true
       # debug "Consuming queue", "CornflowerBlue"
       while process_result
-        reception_queue = JSON.parse localStorage._reception_queue
-        break if reception_queue.empty()
-        data_part = reception_queue.shift()
-        localStorage._reception_queue = JSON.stringify reception_queue
+        holdback_queue = JSON.parse localStorage._holdback_queue
+        break if holdback_queue.empty()
+        data_part = holdback_queue.shift()
+        localStorage._holdback_queue = JSON.stringify holdback_queue
         process_result = @handle_data data_part
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
-      reception_queue = JSON.parse localStorage._reception_queue
-      if reception_queue.empty() and process_result
+      holdback_queue = JSON.parse localStorage._holdback_queue
+      if holdback_queue.empty() and process_result
         setTimeout -> # wait for all retry messages to arrive
           document.consume_offline_queue() # consume the offline queue
         , window.nack_window
@@ -386,7 +387,7 @@
         localStorage.removeItem key
       localStorage._vector = JSON.stringify {}
       localStorage._send_queue = JSON.stringify []
-      localStorage._reception_queue = JSON.stringify []
+      localStorage._holdback_queue = JSON.stringify []
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
       localStorage._conflict_cache = JSON.stringify {}
