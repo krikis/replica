@@ -149,8 +149,7 @@
           else # consider sending a nack
             @handle_missing missing_id,             # missing id
                             vector[missing_id] + 1, # start
-                            high_ends[missing_id],  # end
-                            data.id                 # data id
+                            high_ends[missing_id]   # end
           return false # the data was qeued
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -285,7 +284,7 @@
         return 0
 
     # send nack for missing messages or wait for previously sent nack
-    @handle_missing = (id, start, end, data_id) ->
+    @handle_missing = (id, start, end) ->
       nack_index = JSON.parse localStorage._nack_index
       now = new Date().getTime()
       if (not nack_index[id]? or                               # no nack sent yet
@@ -298,7 +297,6 @@
         start = nack_index[id].end + 1 if nack_index[id]? and
                                           now - nack_index[id].time <= window.nack_window
         nack_index[id] =
-          applicant: data_id
           start: start
           end: end
           time: new Date().getTime()
@@ -339,22 +337,24 @@
         dest: data.id                   # message destination
         retry: send_queue[start..end]   # missing messages
 
+    # consume resent messages
     @consume_retry = (data) ->
-      # put retry on the queue
+      # put messages on the holdback queue, if any 
       for data_part in data.retry
         @enqueue data_part if data_part
       nack_index = JSON.parse localStorage._nack_index
-      delete nack_index[data_id]
+      delete nack_index[data.id]
       localStorage._nack_index = JSON.stringify nack_index
       # process queued values
-      data_id = data.id
       process_result = true
       # debug "Consuming queue", "CornflowerBlue"
       while process_result
+        # pop message from the holdback queue
         holdback_queue = JSON.parse localStorage._holdback_queue
         break if holdback_queue.empty()
         data_part = holdback_queue.shift()
         localStorage._holdback_queue = JSON.stringify holdback_queue
+        # try to process the data
         process_result = @handle_data data_part
         $("#queue #\#{data_part.id}_\#{data_part.vector[data_part.id]}").remove()
       holdback_queue = JSON.parse localStorage._holdback_queue
