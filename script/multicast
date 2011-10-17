@@ -23,7 +23,7 @@ EventMachine.run {
         end
       end
       puts "+#{sid}" # log subscription id
-      # send overview of the peer-to-peer network (not necessary)
+      # send overview of the peer-to-peer network (for debuggin only)
       ws.send JSON.dump({:index => @index.values})
 
       # a client disconnects from the web-socket server
@@ -31,7 +31,7 @@ EventMachine.run {
         # unsubscribe it from the channel using the saved id
         @channel.unsubscribe sid
         puts "-#{sid}" # log subscription id
-        # multicast unsubscription so that clients can adapt their view of the network (not necessary)
+        # multicast unsubscription so that clients can adapt their view of the network (for debuggin only)
         @channel.push({"id" => @index.delete(ws.signature),
                        "unsubscribe" => true})
       }

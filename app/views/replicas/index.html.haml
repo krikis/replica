@@ -16,52 +16,59 @@
     @init_socket = ->
       # TODO: preinitialize #data with localStorage data
       # TODO: preinitialize #queue with localStorage queue
+      # cross-browser compatibility
       Socket = if "MozWebSocket" of window then MozWebSocket else WebSocket
       # set time window for sending nacks
       window.nack_window = 10000
       # initialize local storage system variables
-      localStorage._id = "#{session[:key]}"
-      localStorage._index = JSON.stringify []
-      localStorage._vector ?= JSON.stringify {}
-      localStorage._send_queue ?= JSON.stringify []
-      localStorage._reception_queue ?= JSON.stringify []
-      localStorage._high_ends ?= JSON.stringify {}
-      localStorage._nack_index ?= JSON.stringify {}
-      localStorage._sender_index ?= JSON.stringify {}
-      localStorage._conflict_index ?= JSON.stringify {}
-      localStorage._offline_queue ?= JSON.stringify []
-      localStorage._offline_data ?= JSON.stringify {}
+      localStorage._id = "#{session[:key]}"               # unique identifier for the client
+      localStorage._index = JSON.stringify []             # network membership index (for debuggin only)
+      localStorage._vector ?= JSON.stringify {}           # local time vector for gossip
+      localStorage._send_queue ?= JSON.stringify []       # queue with all messages sent by client
+      localStorage._reception_queue ?= JSON.stringify []  # holdback queue for gossip
+      localStorage._high_ends ?= JSON.stringify {}        # highest missing message timestamps for nack handling
+      localStorage._nack_index ?= JSON.stringify {}       # index of recently sent nacks
+      localStorage._conflict_cache ?= JSON.stringify {}   # cache for conflict resolution
+      localStorage._conflict_index ?= JSON.stringify {}   # index for recently resolved conflicts
+      localStorage._offline_queue ?= JSON.stringify []    # queue for offline generated messages
+      localStorage._offline_data ?= JSON.stringify {}     # current state of the offline data
+      # open a web socket connection
       web_socket = new Socket("ws://y.odel.it:8080/")
       window.web_socket = web_socket
 
+      # upon opening a connection with the web socket server
       web_socket.onopen = ->
         # reset reconnection timeouts
         window.prev_reconnect_on = 1
         window.reconnect_on = 2
+        # update the view
         $("#offbutton").html("Offline")
                        .removeClass("online")
                        .addClass("offline")
         # debug "connected..."
+        # multicast a message with the clients time-vector
         window.web_socket.send JSON.stringify
           id: localStorage._id
           vector: JSON.parse localStorage._vector
           subscribe: true
+        # register the time of subscribing to the multicast network
         window.subscription_sent = new Date().getTime()
-
+      
+      # upon recieving a message from the web socket server
       web_socket.onmessage = (evt) ->
         # debug evt.data, "Gainsboro"
-        # fetch data from localstorage
+        # set variables from localstorage
         id = localStorage._id
         index = JSON.parse localStorage._index
         data = JSON.parse evt.data
-        if data.index?                                    # set the initial index
+        if data.index?                                    # set the initial index (for debuggin only)
           data.index[data.index.length] = id unless id in data.index
           index = data.index
           # save index updates to localstorage
           localStorage._index = JSON.stringify(index)
-        else if data.subscribe? and data.id != id         # handle subscription
+        else if data.subscribe? and data.id != id         # handle subscription (for debuggin only)
           # save index updates to localstorage
-          index[index.length] = data.id
+          index.push data.id
           localStorage._index = JSON.stringify(index)
           # resend all data the new node is missing or send empty array
           vector = JSON.parse localStorage._vector
@@ -69,7 +76,7 @@
           data.start = data.vector[id] + 1
           data.end = vector[id]
           document.send_retry data
-        else if data.unsubscribe? and data.id != id       # handle unsubscription
+        else if data.unsubscribe? and data.id != id       # handle unsubscription (for debuggin only)
           index.delete data.id
           # save index updates to localstorage
           localStorage._index = JSON.stringify(index)
@@ -82,16 +89,20 @@
         else if data.nack?                                # handle multicast nack
           # debug evt.data
           document.send_retry data
-        else if data.retry?                                # consume multicast retry
+        else if data.retry?                               # consume multicast retry
           # debug evt.data
           document.consume_retry data
-        else if data.conflict?
+        else if data.conflict?                            # consume a conflict message
           document.resolve_conflict data
-        else if data.id != id                             # consume multicast messages
+        else if data.id != id                             # consume data message
           document.handle_data data
         # debug localStorage._index, "Gainsboro"
+        
+      # when the web-socket connection is closed
       web_socket.onclose = ->
+        # clear peer-to-peer network state (for debuggin only)
         localStorage._index = JSON.stringify []
+        # update the view
         $("#offbutton").html("Reconnect")
                        .removeClass("offline")
                        .addClass("online")
@@ -136,10 +147,10 @@
               id: missing_id
               retry: []
           else # consider sending a nack
-            @handle_missing missing_id,                   # missing id
-                            vector[missing_id] + 1,       # start
-                            high_ends[missing_id],        # end
-                            data.id                       # data id
+            @handle_missing missing_id,             # missing id
+                            vector[missing_id] + 1, # start
+                            high_ends[missing_id],  # end
+                            data.id                 # data id
           return false # the data was qeued
         # The received data is corrupt
         if data.crc? and crc32("\#{data.key}|\#{data.value}") != data.crc
@@ -150,14 +161,14 @@
         localStorage._vector = JSON.stringify vector
 
       # Visualize the data (to be) stored
-      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}",                          # id
-                           "#data",                                                         # container
-                           key,                                                             # column
-                           value,                                                           # top_color
-                           old_value,                                                       # bottom_color
-                           false,                                                           # scroll
-                           data.resolution,                                                 # conflict resolution
-                           data.resolved                                                    # resolved conflict
+      @visualize_data_flow "\#{data.id}_\#{data.vector[data.id]}", # id
+                           "#data",                                # container
+                           key,                                    # column
+                           value,                                  # top_color
+                           old_value,                              # bottom_color
+                           false,                                  # scroll
+                           data.resolution,                        # conflict resolution
+                           data.resolved                           # resolved conflict
       # Conflict handling
       unless data.resolved?
         if old_value != local_old_value
@@ -174,15 +185,15 @@
     @save_data = (data) ->
       # Actually store the data
       localStorage[data.key] = data.value
-      # Store the sender for conflict resolution
-      sender_index = JSON.parse localStorage._sender_index
-      sender_index[data.key] = data
-      localStorage._sender_index = JSON.stringify sender_index
+      # Store the data for conflict resolution
+      conflict_cache = JSON.parse localStorage._conflict_cache
+      conflict_cache[data.key] = data
+      localStorage._conflict_cache = JSON.stringify conflict_cache
 
     @handle_conflict = (data) ->
       # get the sender index
-      sender_index = JSON.parse localStorage._sender_index
-      previous = sender_index[data.key]
+      conflict_cache = JSON.parse localStorage._conflict_cache
+      previous = conflict_cache[data.key]
       # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
       [loser, loser_vector, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
         [data.id, data.vector, previous.vector]
@@ -373,7 +384,7 @@
       localStorage._reception_queue = JSON.stringify []
       localStorage._high_ends = JSON.stringify {}
       localStorage._nack_index = JSON.stringify {}
-      localStorage._sender_index = JSON.stringify {}
+      localStorage._conflict_cache = JSON.stringify {}
       localStorage._conflict_index = JSON.stringify {}
       localStorage._offline_queue = JSON.stringify []
       localStorage._offline_data = JSON.stringify {}
@@ -382,7 +393,8 @@
       $("#data > .color_column").html("<div class='color_stub'>")
       $("#debug").html("")
 
-    if Modernizr.localstorage and Modernizr.websockets
+    # check whether web sockets and local storage are available in this browser
+    if Modernizr.websockets and Modernizr.localstorage
       @init_socket()                              # initialize a web socket
       debug "It's HTML5 son. It's on."
 
