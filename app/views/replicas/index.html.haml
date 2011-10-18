@@ -169,7 +169,7 @@
                            data.resolution,                        # conflict resolution
                            data.resolved                           # resolved conflict
       # Conflict handling
-      unless data.resolved?
+      unless data.resolved? # is this an old conflict that was already resolved?
         if old_value != local_old_value
           @handle_conflict data
         else
