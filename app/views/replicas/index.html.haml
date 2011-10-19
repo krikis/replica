@@ -551,7 +551,6 @@
            :title => "HTML5 Powered with Connectivity / Realtime, and Offline & Storage",
            :width => "165"}
   #id= "#{session[:key]}"
-  #spacer
 
 :coffeescript
   $ -> # jQuery document.ready
@@ -716,7 +715,7 @@
           else
             $(this).html("Show Log")
             $("#debug").hide()
-            $("#data").css("height", "38.15em")
+            $("#data").css("height", "33.15em")
 
       $("#arresto").click ->
         if document.acquire_semaphore()
