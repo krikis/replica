@@ -240,6 +240,7 @@
           @construe_data(conflicting_message.key, conflicting_message.value, true)
         else
           # TODO:: enqueue and send nack for when the winner message is not yet delivered
+          @construe_data(conflicting_message.key, conflicting_message.value, true)
 
     # Detect missing messages
     @missing_id_for = (data) ->
