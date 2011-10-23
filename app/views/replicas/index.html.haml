@@ -189,24 +189,26 @@
       conflict_cache[data.key] = data
       localStorage._conflict_cache = JSON.stringify conflict_cache
 
+    # send conflict message to losing client
     @handle_conflict = (data) ->
       # get the sender index
       conflict_cache = JSON.parse localStorage._conflict_cache
       previous = conflict_cache[data.key]
       # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
-      [loser, loser_vector, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
-        [data.id, data.vector, previous.vector]
+      [loser, loser_vector, winner, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
+        [data.id, data.vector, previous, previous.vector]
       else                                                                               # old message is loser
         # save the data
         @save_data data
-        [previous.id, previous.vector, data.vector]
+        [previous.id, previous.vector, data, data.vector]
       $("#\#{loser}_\#{loser_vector[loser]}").children("div").css("border", "3px solid Crimson")
       conflict =
         id: localStorage._id
-        dest: loser
-        vector: loser_vector
-        old_vector: winner_vector
-        object: data.key
+        dest: loser                                   # losing client
+        loser_time: loser_vector[loser]               # message count of losing client
+        winner: winner                                # winning client
+        winner_time: winner_vector[winner]            # message count of winning client
+        object: data.key                              # object subject to the conflict
         conflict: true
       unless loser == localStorage._id                # someone else has to resolve this
         # send conflict message to loser
@@ -215,23 +217,29 @@
       else                                            # I can resolve this myself
         @resolve_conflict conflict
 
+    # resolve conflicting message by rebasing it on an object's current state
     @resolve_conflict = (data) ->
       conflict_index = JSON.parse localStorage._conflict_index
       # is the conflict being handled already?
       unless (conflicts = conflict_index[data.object])? and data.vector[localStorage._id] in conflicts
-        index_of_conflict = data.vector[localStorage._id]
+        index_of_conflict = data.loser_time
         # mark the conflict as being handled
         conflict_index[data.object] ?= []
         conflict_index[data.object].push index_of_conflict
         localStorage._conflict_index = JSON.stringify conflict_index
-        # resolve the conflict
+        # fetch conflicting message's data and mark it as resolved
         send_queue = JSON.parse localStorage._send_queue
         conflicting_message = send_queue[index_of_conflict]
         send_queue[index_of_conflict].resolved = true
         localStorage._send_queue = JSON.stringify send_queue
-        # resend conflicting update as a patch to the current storage state
-        debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
-        @construe_data(conflicting_message.key, conflicting_message.value, true)
+        # check whether current object state is up to date
+        vector = JSON.parse localStorage._vector
+        if vector[data.winner] <= data.winner_time
+          # resend conflicting data update as a patch to the current storage state
+          debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
+          @construe_data(conflicting_message.key, conflicting_message.value, true)
+        else
+          # TODO:: enqueue and send nack for when the winner message is not yet delivered
 
     # Detect missing messages
     @missing_id_for = (data) ->
