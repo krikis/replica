@@ -577,13 +577,13 @@
       old_value = localStorage[key]
       old_value ?= "#ffffff"
       data =
-        id: localStorage._id
-        key: key
-        value: value
-        crc: crc32("\#{key}|\#{value}")
+        id: localStorage._id             # sender id
+        key: key                         # data object id
+        value: value                     # new revision number
+        crc: crc32("\#{key}|\#{value}")  # checksum
         resolution: conflict_resolution
       unless window.offline? # actually send the data
-        data.old_value = old_value
+        data.old_value = old_value       # old revision number
         @deliver_data data
       else # queue the data
         offline_data = JSON.parse localStorage._offline_data
