@@ -196,11 +196,11 @@
       previous = conflict_cache[data.key]
       # determine the winner of concurrent messages based on their unique id (cfr. Lamport's bakery algorithm)
       [loser, loser_vector, winner, winner_vector] = if data.id > previous.id or data.offline?   # new message is loser
-        [data.id, data.vector, previous, previous.vector]
+        [data.id, data.vector, previous.id, previous.vector]
       else                                                                               # old message is loser
         # save the data
         @save_data data
-        [previous.id, previous.vector, data, data.vector]
+        [previous.id, previous.vector, data.id, data.vector]
       $("#\#{loser}_\#{loser_vector[loser]}").children("div").css("border", "3px solid Crimson")
       conflict =
         id: localStorage._id
