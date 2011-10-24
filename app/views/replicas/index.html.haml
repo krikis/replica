@@ -221,7 +221,7 @@
     @resolve_conflict = (data) ->
       conflict_index = JSON.parse localStorage._conflict_index
       # is the conflict being handled already?
-      unless (conflicts = conflict_index[data.object])? and data.vector[localStorage._id] in conflicts
+      unless (conflicts = conflict_index[data.object])? and data.loser_time in conflicts
         index_of_conflict = data.loser_time
         # mark the conflict as being handled
         conflict_index[data.object] ?= []
@@ -236,7 +236,7 @@
         vector = JSON.parse localStorage._vector
         if vector[data.winner] <= data.winner_time
           # resend conflicting data update as a patch to the current storage state
-          debug "Resolving conflict for \#{data.object} (\#{data.vector[localStorage._id]}) reported by \#{data.id}", "YellowGreen"
+          debug "Resolving conflict for \#{data.object} (\#{data.loser_time}) reported by \#{data.id}", "YellowGreen"
           @construe_data(conflicting_message.key, conflicting_message.value, true)
         else
           # TODO:: enqueue and send nack for when the winner message is not yet delivered
