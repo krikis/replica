@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 require 'em-websocket'
 require 'json'
-require 'andand'
 
 EventMachine.run {
 
