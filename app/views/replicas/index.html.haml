@@ -290,6 +290,7 @@
         # return the order
         return 1 if bigger.length > 0 and smaller.empty()
         return -1 if bigger.empty() and smaller.length > 0
+        # break the concurrency chain should any occur
         return 1 if first.id > last.id
         return -1 if first.id < last.id
         return 0
